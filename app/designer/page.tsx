@@ -12,5 +12,7 @@ export default async function Designer({ searchParams }: { searchParams: Promise
   if (error || !cheque) notFound();
   if (cheque.status !== "draft") redirect(`/cheques/${cheque.id}`);
   const snapshot = (cheque.layout_snapshot || {}) as any;
-  return <ChequeDesigner initialDraft={{ id: cheque.id, payee: cheque.payees?.name || "", date: snapshot.date || (cheque.cheque_date ? cheque.cheque_date.slice(8,10)+cheque.cheque_date.slice(5,7)+cheque.cheque_date.slice(0,4) : ""), amount: String(cheque.amount ?? ""), notes: cheque.notes || "", config: snapshot.calibration || undefined }} />;
+  const relation = cheque.payees as unknown as { name?: string } | { name?: string }[] | null;
+  const payeeName = Array.isArray(relation) ? relation[0]?.name : relation?.name;
+  return <ChequeDesigner initialDraft={{ id: cheque.id, payee: payeeName || "", date: snapshot.date || (cheque.cheque_date ? cheque.cheque_date.slice(8,10)+cheque.cheque_date.slice(5,7)+cheque.cheque_date.slice(0,4) : ""), amount: String(cheque.amount ?? ""), notes: cheque.notes || "", config: snapshot.calibration || undefined }} />;
 }
