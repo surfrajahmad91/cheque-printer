@@ -8,6 +8,8 @@ import type {Metadata} from "next";
 import {createClient} from "@/lib/supabase/server";
 import {LogoutButton} from "@/components/logout-button";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "ChequeFlow — Precise Cheque Printing",
   description: "A professional workspace for preparing, calibrating, managing and printing cheques.",
