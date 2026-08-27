@@ -9,26 +9,30 @@ export default async function ChequeDetails({ params }: { params: Promise<{ id: 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: cheque } = await supabase
+  const { data: cheque, error: chequeError } = await supabase
     .from("cheques")
-    .select("*")
+    .select("*, payees(name)")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
-  if (!cheque) notFound();
+  if (chequeError || !cheque) notFound();
 
   const { data: history } = await supabase
     .from("print_history")
     .select("id,print_number,printed_at,notes")
     .eq("cheque_id", id)
+    .eq("user_id", user.id)
     .order("printed_at", { ascending: false });
+
+  const payeeName = cheque.payees?.name || "Untitled cheque";
 
   return (
     <main className="main">
       <div className="toolbar">
         <div>
           <Link href="/cheques" className="back">← Cheque Register</Link>
-          <h1>{cheque.payee || "Untitled cheque"}</h1>
+          <h1>{payeeName}</h1>
           <p className="muted">Cheque record and print history</p>
         </div>
         <Link className="btn secondary" href="/designer">New cheque</Link>
@@ -38,7 +42,7 @@ export default async function ChequeDetails({ params }: { params: Promise<{ id: 
         <section className="card">
           <h2>Cheque details</h2>
           <dl className="details">
-            <div><dt>Payee</dt><dd>{cheque.payee || "—"}</dd></div>
+            <div><dt>Payee</dt><dd>{payeeName}</dd></div>
             <div><dt>Date</dt><dd>{cheque.cheque_date || "—"}</dd></div>
             <div><dt>Cheque number</dt><dd>{cheque.cheque_number || "—"}</dd></div>
             <div><dt>Amount</dt><dd>₹{Number(cheque.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</dd></div>
