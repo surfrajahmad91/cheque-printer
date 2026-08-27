@@ -6,12 +6,21 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: cheque-printer-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-placeholder
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +28,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
       - name: Build
         run: npm run build
