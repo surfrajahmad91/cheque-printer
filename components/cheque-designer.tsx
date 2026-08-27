@@ -1,63 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
-type Item = { x: number; y: number; font: number; width?: number; angle?: number; text?: string };
-
-const initial = {
-  acPayee: { x: 14, y: 10, font: 12, width: 24, angle: -40, topLineY: -2.3, bottomLineY: 2.3 },
-  date: { x: 154, y: 10, font: 12, spacing: 0.8 },
-  payee: { x: 30, y: 28, font: 12, width: 90 },
-  amount: { x: 154, y: 29, font: 12, width: 35 },
-  words1: { x: 30, y: 39, font: 11, width: 120 },
-  words2: { x: 30, y: 46, font: 11, width: 120 },
-};
-
-function inWords(n: number) {
-  if (!Number.isFinite(n)) return "";
-  const ones = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
-  const tens = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
-  const below100 = (v:number):string => v < 20 ? ones[v] : tens[Math.floor(v/10)] + (v%10 ? " " + ones[v%10] : "");
-  const group = (v:number):string => v < 100 ? below100(v) : v < 1000 ? `${ones[Math.floor(v/100)]} hundred${v%100 ? " " + below100(v%100) : ""}` : v < 100000 ? `${below100(Math.floor(v/1000))} thousand${v%1000 ? " " + group(v%1000) : ""}` : v < 10000000 ? `${below100(Math.floor(v/100000))} lakh${v%100000 ? " " + group(v%100000) : ""}` : `${group(Math.floor(v/10000000))} crore${v%10000000 ? " " + group(v%10000000) : ""}`;
-  const rupees = Math.floor(Math.abs(n));
-  const paise = Math.round((Math.abs(n) - rupees) * 100);
-  const result = `${group(rupees)} rupees${paise ? ` and ${group(paise)} paise` : ""}`;
-  return n < 0 ? `minus ${result}` : result;
-}
-
-export function ChequeDesigner() {
-  const [payee, setPayee] = useState("");
-  const [date, setDate] = useState("");
-  const [amount, setAmount] = useState("");
-  const [selected, setSelected] = useState<keyof typeof initial>("payee");
-  const [cfg, setCfg] = useState(initial);
-  const [background, setBackground] = useState<string | null>(null);
-
-  const words = useMemo(() => inWords(Number(amount)), [amount]);
-  const first = words.slice(0, 115);
-  const second = words.slice(115);
-  const update = (key: keyof typeof initial, field: string, value: number) => setCfg(c => ({ ...c, [key]: { ...c[key], [field]: value } }));
-
-  return <div className="native-designer">
-    <aside className="designer-panel">
-      <h2>Cheque Designer</h2>
-      <label>Payee<input value={payee} onChange={e=>setPayee(e.target.value)} placeholder="Payee name" /></label>
-      <label>Date (DDMMYYYY)<input inputMode="numeric" maxLength={8} value={date} onChange={e=>setDate(e.target.value.replace(/\D/g, "").slice(0,8))} placeholder="DDMMYYYY" /></label>
-      <label>Amount<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" /></label>
-      <label>Background for calibration<input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0]; if(f) setBackground(URL.createObjectURL(f));}} /></label>
-      <div className="designer-settings"><strong>Selected: {selected}</strong>{(["x","y","font","width"] as const).map(field => field in cfg[selected] && <label key={field}>{field.toUpperCase()}<input type="number" step="0.1" value={(cfg[selected] as Record<string,number>)[field] ?? 0} onChange={e=>update(selected,field,Number(e.target.value))}/></label>)}</div>
-    </aside>
-    <section className="designer-stage">
-      <div className="cheque-canvas" style={{backgroundImage: background ? `url(${background})` : undefined}} onClick={()=>setSelected("payee")}>
-        <button className="cal-item ac" onClick={e=>{e.stopPropagation();setSelected("acPayee")}} style={{left:`${cfg.acPayee.x}mm`,top:`${cfg.acPayee.y}mm`,fontSize:`${cfg.acPayee.font}pt`,transform:`rotate(${cfg.acPayee.angle}deg)`}}>A/C PAYEE</button>
-        <span className="line top" style={{left:`${cfg.acPayee.x}mm`,top:`${cfg.acPayee.y + cfg.acPayee.topLineY}mm`,width:`${cfg.acPayee.width}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}} />
-        <span className="line bottom" style={{left:`${cfg.acPayee.x}mm`,top:`${cfg.acPayee.y + cfg.acPayee.bottomLineY}mm`,width:`${cfg.acPayee.width}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}} />
-        <span className="cal-item date" onClick={()=>setSelected("date")} style={{left:`${cfg.date.x}mm`,top:`${cfg.date.y}mm`,fontSize:`${cfg.date.font}pt`,letterSpacing:`${cfg.date.spacing}mm`}}>{date || "DDMMYYYY"}</span>
-        <span className="cal-item payee" onClick={()=>setSelected("payee")} style={{left:`${cfg.payee.x}mm`,top:`${cfg.payee.y}mm`,fontSize:`${cfg.payee.font}pt`,width:`${cfg.payee.width}mm`}}>{payee || "Payee"}</span>
-        <span className="cal-item amount" onClick={()=>setSelected("amount")} style={{left:`${cfg.amount.x}mm`,top:`${cfg.amount.y}mm`,fontSize:`${cfg.amount.font}pt`,width:`${cfg.amount.width}mm`}}>₹ {amount || "0.00"}</span>
-        <span className="cal-item words1" onClick={()=>setSelected("words1")} style={{left:`${cfg.words1.x}mm`,top:`${cfg.words1.y}mm`,fontSize:`${cfg.words1.font}pt`,width:`${cfg.words1.width}mm`}}>{first}</span>
-        <span className="cal-item words2" onClick={()=>setSelected("words2")} style={{left:`${cfg.words2.x}mm`,top:`${cfg.words2.y}mm`,fontSize:`${cfg.words2.font}pt`,width:`${cfg.words2.width}mm`}}>{second}</span>
-      </div>
-    </section>
-  </div>;
+type Key="acPayee"|"date"|"payee"|"amount"|"words1"|"words2";
+type C={x:number;y:number;font:number;width?:number;angle?:number;spacing?:number;topLineY?:number;bottomLineY?:number};
+const initial:Record<Key,C>={acPayee:{x:14,y:12,font:12,width:24,angle:-40,topLineY:-2.3,bottomLineY:2.3},date:{x:154,y:10,font:12,spacing:.8},payee:{x:30,y:28,font:12,width:90},amount:{x:154,y:29,font:12,width:35},words1:{x:30,y:39,font:11,width:120},words2:{x:30,y:46,font:11,width:120}};
+const ones=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"],tens=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+const u100=(n:number)=>n<20?ones[n]:tens[Math.floor(n/10)]+(n%10?` ${ones[n%10]}`:"");
+function group(n:number):string{if(n<100)return u100(n);if(n<1000)return `${ones[Math.floor(n/100)]} hundred${n%100?` ${u100(n%100)}`:""}`;if(n<100000)return `${u100(Math.floor(n/1000))} thousand${n%1000?` ${group(n%1000)}`:""}`;if(n<10000000)return `${u100(Math.floor(n/100000))} lakh${n%100000?` ${group(n%100000)}`:""}`;return `${group(Math.floor(n/10000000))} crore${n%10000000?` ${group(n%10000000)}`:""}`}
+function amountWords(s:string){const n=Number(s);if(!Number.isFinite(n))return "";const a=Math.floor(Math.abs(n)),p=Math.round((Math.abs(n)-a)*100);return `${n<0?"minus ":""}${group(a)} rupees${p?` and ${group(p)} paise`:""}`}
+function wrap(s:string,width:number){const max=Math.max(8,Math.floor(width*1.7));let a="",b="";for(const w of s.split(" ")){if(!a||(`${a} ${w}`).length<=max)a+=(a?" ":"")+w;else b+=(b?" ":"")+w}return[a,b]}
+export function ChequeDesigner(){
+ const router=useRouter(),canvas=useRef<HTMLDivElement>(null),drag=useRef<{k:Key;dx:number;dy:number}|null>(null);const[cfg,setCfg]=useState(initial),[sel,setSel]=useState<Key>("payee"),[payee,setPayee]=useState(""),[date,setDate]=useState(""),[amount,setAmount]=useState(""),[notes,setNotes]=useState(""),[bg,setBg]=useState<string|null>(null),[busy,setBusy]=useState(false),[status,setStatus]=useState("Ready");
+ const words=useMemo(()=>amountWords(amount),[amount]),[w1,w2]=useMemo(()=>wrap(words,cfg.words1.width||120),[words,cfg.words1.width]);
+ const field=(k:Key,f:keyof C,v:number)=>setCfg(x=>({...x,[k]:{...x[k],[f]:v}}));
+ const down=(e:React.PointerEvent,k:Key)=>{const r=canvas.current?.getBoundingClientRect();if(!r)return;drag.current={k,dx:e.clientX-r.left-cfg[k].x*r.width/200,dy:e.clientY-r.top-cfg[k].y*r.height/100};setSel(k);(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};
+ const move=(e:React.PointerEvent)=>{const d=drag.current,r=canvas.current?.getBoundingClientRect();if(!d||!r)return;field(d.k,"x",Math.max(0,Math.min(200,(e.clientX-r.left-d.dx)*200/r.width)));field(d.k,"y",Math.max(0,Math.min(100,(e.clientY-r.top-d.dy)*100/r.height)))};
+ const save=async(print=false)=>{setBusy(true);setStatus(print?"Saving & preparing print…":"Saving draft…");const s=createClient(),{data:{user}}=await s.auth.getUser();if(!user){router.push("/login");return}const snap={source:"native-cheque-designer",date,payee,amount:Number(amount)||0,amountInWords:words,calibration:cfg};const{data:c,error}=await s.from("cheques").insert({user_id:user.id,cheque_date:date,payee,amount:Number(amount)||0,amount_in_words:words,status:"draft",layout_snapshot:snap,notes}).select("id").single();if(error||!c){setBusy(false);setStatus(error?.message||"Unable to save");return}if(print){const{error:e}=await s.rpc("record_cheque_print",{p_cheque_id:c.id,p_notes:notes});if(e){setBusy(false);setStatus(e.message);return}}setBusy(false);setStatus(print?"Saved ✓ — printing…":"Draft saved ✓");if(print)window.print()};
+ const c=cfg[sel];return <div className="native-designer"><aside className="designer-panel"><h2>Cheque Designer</h2><p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p><div className="input-grid"><label>Payee<input value={payee} onChange={e=>setPayee(e.target.value)}/></label><label>Date (DDMMYYYY)<input inputMode="numeric" maxLength={8} value={date} onChange={e=>setDate(e.target.value.replace(/\D/g,"").slice(0,8))}/></label><label>Amount<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Notes<input value={notes} onChange={e=>setNotes(e.target.value)}/></label></div><label>Background for calibration<input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setBg(URL.createObjectURL(f))}}/></label><div className="settings"><h3>{sel} settings</h3>{(["x","y","font","width"] as const).map(f=>f in c?<label key={f}>{f.toUpperCase()}<input type="number" step=".1" value={(c as any)[f]??0} onChange={e=>field(sel,f,Number(e.target.value))}/></label>:null)}{sel==="acPayee"&&<><label>Angle<input type="number" value={c.angle} onChange={e=>field(sel,"angle",Number(e.target.value))}/></label><label>Top line Y<input type="number" step=".1" value={c.topLineY} onChange={e=>field(sel,"topLineY",Number(e.target.value))}/></label><label>Bottom line Y<input type="number" step=".1" value={c.bottomLineY} onChange={e=>field(sel,"bottomLineY",Number(e.target.value))}/></label></>}{sel==="date"&&<label>Character spacing<input type="number" step=".1" value={c.spacing} onChange={e=>field(sel,"spacing",Number(e.target.value))}/></label>}</div><div className="action-row"><button className="btn secondary" disabled={busy} onClick={()=>void save(false)}>Save Draft</button><button className="btn" disabled={busy} onClick={()=>void save(true)}>Save & Print</button></div><span className="badge">{status}</span></aside><section className="designer-stage"><div ref={canvas} className="cheque-canvas" style={{backgroundImage:bg?`url(${bg})`:undefined}} onPointerMove={move} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null}><div className="cal-item ac" onPointerDown={e=>down(e,"acPayee")} style={{left:`${cfg.acPayee.x}mm`,top:`${cfg.acPayee.y}mm`}}><span className="line" style={{width:`${cfg.acPayee.width}mm`,top:`${cfg.acPayee.topLineY}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}}/><span style={{fontSize:`${cfg.acPayee.font}pt`,transform:`rotate(${cfg.acPayee.angle}deg)`}}>A/C PAYEE</span><span className="line" style={{width:`${cfg.acPayee.width}mm`,top:`${cfg.acPayee.bottomLineY}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}}/></div><div className="cal-item date" onPointerDown={e=>down(e,"date")} style={{left:`${cfg.date.x}mm`,top:`${cfg.date.y}mm`,fontSize:`${cfg.date.font}pt`,letterSpacing:`${cfg.date.spacing}mm`}}>{date||"DDMMYYYY"}</div><div className="cal-item payee" onPointerDown={e=>down(e,"payee")} style={{left:`${cfg.payee.x}mm`,top:`${cfg.payee.y}mm`,fontSize:`${cfg.payee.font}pt`,width:`${cfg.payee.width}mm`}}>{payee||"Payee"}</div><div className="cal-item amount" onPointerDown={e=>down(e,"amount")} style={{left:`${cfg.amount.x}mm`,top:`${cfg.amount.y}mm`,fontSize:`${cfg.amount.font}pt`,width:`${cfg.amount.width}mm`}}>₹ {amount||"0.00"}</div><div className="cal-item words1" onPointerDown={e=>down(e,"words1")} style={{left:`${cfg.words1.x}mm`,top:`${cfg.words1.y}mm`,fontSize:`${cfg.words1.font}pt`,width:`${cfg.words1.width}mm`}}>{w1}</div><div className="cal-item words2" onPointerDown={e=>down(e,"words2")} style={{left:`${cfg.words2.x}mm`,top:`${cfg.words2.y}mm`,fontSize:`${cfg.words2.font}pt`,width:`${cfg.words2.width}mm`}}>{w2}</div></div></section></div>;
 }
