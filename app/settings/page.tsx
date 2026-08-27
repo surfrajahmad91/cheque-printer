@@ -1,1 +1,4 @@
-export default function Settings(){return <main className="main"><h1>Settings</h1><div className="grid cards"><div className="card"><h3>Printer calibration</h3><p className="muted">Physical printer X/Y offsets and scale will be stored per template.</p></div><div className="card"><h3>Backup</h3><p className="muted">Export/import will be added before production launch.</p></div></div></main>}
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { SettingsManager } from "@/components/settings-manager";
+export default async function Settings(){const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)redirect("/login");return <SettingsManager/>}
