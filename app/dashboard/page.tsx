@@ -17,20 +17,20 @@ export default async function Dashboard() {
     s.from("cheques").select("id,cheque_number,cheque_date,amount,status,created_at,payees(name)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
   ]);
 
-  return <main className="main dashboard-page">
+  return <main className="main">
     <div className="toolbar">
       <div><span className="eyebrow">Cheque printing</span><h1>Dashboard</h1><p className="muted">Welcome back, {user.user_metadata?.name || user.email}.</p></div>
       <Link className="btn" href="/designer">+ Create Cheque</Link>
     </div>
     <div className="grid cards">
-      <div className="card"><span className="stat-label">Saved cheques</span><h3>{saved ?? 0}</h3><span className="muted">Your complete register</span></div>
-      <div className="card"><span className="stat-label">Printed today</span><h3>{printedToday ?? 0}</h3><span className="muted">Successful print records</span></div>
-      <div className="card"><span className="stat-label">Drafts</span><h3>{drafts ?? 0}</h3><span className="muted">Ready to continue</span></div>
-      <div className="card"><span className="stat-label">Calibration engine</span><h3>v24</h3><span className="muted">Locked & ready</span></div>
+      <div className="card"><span className="muted">Saved cheques</span><h3>{saved ?? 0}</h3><span className="muted">Your complete register</span></div>
+      <div className="card"><span className="muted">Printed today</span><h3>{printedToday ?? 0}</h3><span className="muted">Successful print records</span></div>
+      <div className="card"><span className="muted">Drafts</span><h3>{drafts ?? 0}</h3><span className="muted">Ready to continue</span></div>
+      <div className="card"><span className="muted">Calibration engine</span><h3>v24</h3><span className="muted">Locked & ready</span></div>
     </div>
-    <section className="card recent-card">
-      <div className="section-heading"><div><span className="eyebrow">Activity</span><h2>Recent cheques</h2><p className="muted">Your latest saved and printed work.</p></div><Link className="text-link" href="/cheques">View register →</Link></div>
-      {recent?.length ? <div className="recent-list">{recent.map((c:any)=><div className="recent-row" key={c.id}><div className="recent-main"><div className="recent-icon">₹</div><div><strong>{c.payees?.name || "Unnamed payee"}</strong><span>{c.cheque_date || "No date"} · Cheque {c.cheque_number || "—"}</span></div></div><div className="recent-meta"><strong>₹{Number(c.amount || 0).toLocaleString("en-IN", {minimumFractionDigits:2})}</strong><span className="badge">{c.status}</span></div></div>)}</div> : <div className="empty compact-empty"><h3>No cheques yet</h3><p className="muted">Create your first cheque from the designer.</p><Link className="btn secondary" href="/designer">Create cheque</Link></div>}
+    <section className="card" style={{marginTop:20}}>
+      <div className="toolbar" style={{marginBottom:16,alignItems:"center"}}><div><span className="eyebrow">Activity</span><h2 style={{margin:"3px 0 4px",fontSize:20,letterSpacing:"-.35px"}}>Recent cheques</h2><p className="muted">Your latest saved and printed work.</p></div><Link className="text-link" href="/cheques">View register →</Link></div>
+      {recent?.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Payee</th><th>Date</th><th>Cheque No.</th><th>Amount</th><th>Status</th></tr></thead><tbody>{recent.map((c:any)=><tr key={c.id}><td>{c.payees?.name || "—"}</td><td>{c.cheque_date || "—"}</td><td>{c.cheque_number || "—"}</td><td>₹{Number(c.amount || 0).toLocaleString("en-IN", {minimumFractionDigits:2})}</td><td><span className="badge">{c.status}</span></td></tr>)}</tbody></table></div> : <div className="empty" style={{padding:"30px 20px"}}><h3>No cheques yet</h3><p className="muted">Create your first cheque from the designer.</p><Link className="btn secondary" href="/designer">Create cheque</Link></div>}
     </section>
   </main>;
 }
