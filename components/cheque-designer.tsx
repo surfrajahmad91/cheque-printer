@@ -7,19 +7,7 @@ import { useRouter } from "next/navigation";
 type Key = "acPayee" | "chequeNumber" | "date" | "payee" | "amount" | "words1" | "words2";
 type C = { x: number; y: number; font: number; width?: number; angle?: number; spacing?: number; topLineY?: number; bottomLineY?: number };
 type Template = { id: string; name: string; payee: string; calibration: Record<Key, C> };
-
-type Props = {
-  initialDraft?: {
-    id: string;
-    chequeNumber?: string | number;
-    payee: string;
-    date: string;
-    amount: string;
-    notes: string;
-    config?: Record<Key, C>;
-  };
-};
-
+type Props = { initialDraft?: { id: string; chequeNumber?: string | number; payee: string; date: string; amount: string; notes: string; config?: Record<Key, C> } };
 type Drag = { k: Key; dx: number; dy: number };
 type LineDrag = { line: "top" | "bottom"; offset: number };
 
@@ -36,7 +24,6 @@ const initial: Record<Key, C> = {
 const ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
 const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
 const u100 = (n: number) => n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? ` ${ones[n % 10]}` : "");
-
 function group(n: number): string {
   if (n < 100) return u100(n);
   if (n < 1000) return `${ones[Math.floor(n / 100)]} hundred${n % 100 ? ` ${u100(n % 100)}` : ""}`;
@@ -44,9 +31,7 @@ function group(n: number): string {
   if (n < 10000000) return `${u100(Math.floor(n / 100000))} lakh${n % 100000 ? ` ${group(n % 100000)}` : ""}`;
   return `${group(Math.floor(n / 10000000))} crore${n % 10000000 ? ` ${group(n % 10000000)}` : ""}`;
 }
-
 const properCase = (s: string) => s.replace(/\b[a-z]/g, (m) => m.toUpperCase());
-
 function amountWords(s: string) {
   const clean = s.trim();
   if (!clean) return "";
@@ -56,12 +41,10 @@ function amountWords(s: string) {
   if (!Number.isFinite(a) || !Number.isFinite(p) || a < 0 || p < 0) return "";
   return properCase(`${group(a)}${p ? ` and ${group(p)} Paise` : ""} Only`);
 }
-
 const formatIndianAmount = (s: string) => {
   const n = Number(s);
   return Number.isFinite(n) && n >= 0 ? n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
 };
-
 function wrapTwo(s: string, w1: number, _w2: number, font1: number, _font2: number): [string, string] {
   if (!s) return ["", ""];
   const width1Px = Math.max(1, w1 * 96 / 25.4);
@@ -81,15 +64,12 @@ function wrapTwo(s: string, w1: number, _w2: number, font1: number, _font2: numb
   if (!line1 && words.length) { line1 = words[0]; index = 1; }
   return [line1, words.slice(index).join(" ")];
 }
-
 function validDate(s: string) {
   if (!/^\d{8}$/.test(s)) return false;
   const d = +s.slice(0, 2), m = +s.slice(2, 4), y = +s.slice(4);
   return y >= 1900 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= new Date(y, m, 0).getDate();
 }
-
 const isoDate = (s: string) => `${s.slice(4)}-${s.slice(2, 4)}-${s.slice(0, 2)}`;
-
 function normalizeConfig(raw: any): Record<Key, C> {
   const out: Record<Key, C> = { ...initial };
   const source = raw && typeof raw === "object" ? raw : {};
@@ -128,19 +108,14 @@ export function ChequeDesigner({ initialDraft }: Props) {
     if (e) { setError(e.message); return; }
     setTemplates((data || []).map((t: any) => ({ id: t.id, name: t.name, payee: t.layout?.payee || "", calibration: normalizeConfig(t.layout?.calibration) })));
   };
-
   useEffect(() => { void loadTemplates(); }, []);
-
   useEffect(() => {
     if (initialDraft || typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("template");
     if (!id) return;
     const found = templates.find((t) => t.id === id);
-    if (found) {
-      setSelectedTemplate(found.id); setPayee(found.payee); setCfg(normalizeConfig(found.calibration)); setStatus(`Template loaded: ${found.name} ✓`);
-    }
+    if (found) { setSelectedTemplate(found.id); setPayee(found.payee); setCfg(normalizeConfig(found.calibration)); setStatus(`Template loaded: ${found.name} ✓`); }
   }, [templates, initialDraft]);
-
   const chooseTemplate = (id: string) => {
     setSelectedTemplate(id);
     if (!id) { setStatus("Ready"); return; }
@@ -148,9 +123,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
     if (!t) return;
     setCfg(normalizeConfig(t.calibration)); setPayee(t.payee); setStatus(`Template loaded: ${t.name} ✓`);
   };
-
   const field = (k: Key, f: keyof C, v: number) => setCfg((x) => ({ ...x, [k]: { ...x[k], [f]: v } }));
-
   const down = (e: React.PointerEvent, k: Key) => {
     e.stopPropagation(); const r = canvas.current?.getBoundingClientRect(); if (!r) return;
     drag.current = { k, dx: e.clientX - r.left - cfg[k].x * r.width / 200, dy: e.clientY - r.top - cfg[k].y * r.height / 100 }; setSel(k); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -161,13 +134,13 @@ export function ChequeDesigner({ initialDraft }: Props) {
   };
   const lineDown = (e: React.PointerEvent, line: "top" | "bottom") => {
     e.stopPropagation(); const r = canvas.current?.getBoundingClientRect(); if (!r) return;
-    const current = line === "top" ? cfg.acPayee.topLineY! : cfg.acPayee.bottomLineY!; lineDrag.current = { line, offset: e.clientY - r.top - (cfg.acPayee.y + current) * r.height / 100 }; setSel("acPayee"); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const current = line === "top" ? cfg.acPayee.topLineY! : cfg.acPayee.bottomLineY!;
+    lineDrag.current = { line, offset: e.clientY - r.top - (cfg.acPayee.y + current) * r.height / 100 }; setSel("acPayee"); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const moveLine = (e: React.PointerEvent) => {
     const d = lineDrag.current, r = canvas.current?.getBoundingClientRect(); if (!d || !r) return;
     field("acPayee", d.line === "top" ? "topLineY" : "bottomLineY", (e.clientY - r.top - d.offset) * 100 / r.height - cfg.acPayee.y);
   };
-
   const saveTemplate = async (updateExisting = false) => {
     setError(""); const name = templateName.trim() || templates.find((t) => t.id === selectedTemplate)?.name || "";
     if (!name) { setError("Enter a template name."); return; }
@@ -186,7 +159,6 @@ export function ChequeDesigner({ initialDraft }: Props) {
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to save template"); }
     finally { setBusy(false); }
   };
-
   const save = async (print = false) => {
     setError(""); const normalizedChequeNumber = chequeNumber.trim();
     if (!normalizedChequeNumber || !/^\d+$/.test(normalizedChequeNumber) || !/[1-9]/.test(normalizedChequeNumber)) { setError("Enter the actual cheque number (positive whole number). Leading zeros are allowed."); return; }
@@ -217,40 +189,72 @@ export function ChequeDesigner({ initialDraft }: Props) {
 
   const c = cfg[sel];
   const itemStyle = (k: Key): React.CSSProperties => ({ left: `${cfg[k].x}mm`, top: `${cfg[k].y}mm`, fontSize: `${cfg[k].font}pt`, width: cfg[k].width ? `${cfg[k].width}mm` : undefined, letterSpacing: cfg[k].spacing ? `${cfg[k].spacing}mm` : undefined });
+  const datePreview = date ? date.split("").join(" ") : "";
+  const lineGap = Math.abs((cfg.acPayee.bottomLineY ?? 0) - (cfg.acPayee.topLineY ?? 0));
 
   return <div className="designer-wrap">
-    <aside className="designer-panel">
-      <h2>Cheque Designer</h2><p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p>
-      <div className="settings"><h3>Design Template</h3>
-        <label>Choose template<select value={selectedTemplate} onChange={(e) => chooseTemplate(e.target.value)} disabled={busy}><option value="">Blank / no template</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.payee ? ` — ${t.payee}` : ""}</option>)}</select></label>
-        <label>Template name<input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. SBI Current Account" disabled={busy} /></label>
-        <div className="action-row"><button className="btn secondary" type="button" onClick={() => void saveTemplate(false)} disabled={busy}>Save as Template</button>{selectedTemplate && <button className="btn secondary" type="button" onClick={() => void saveTemplate(true)} disabled={busy}>Update Template</button>}</div>
+    <div className="designer-panel">
+      <div className="designer-header">
+        <div><div className="eyebrow">CHEQUE PRINTING</div><h2>Cheque Designer</h2><p className="muted">Calibrate once, save a template, and reuse it for every cheque.</p></div>
+        <div className="size-chip">200 × 100 mm</div>
       </div>
-      <div className="input-grid">
-        <label>Cheque Number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="Actual cheque number" disabled={busy} /></label>
-        <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} disabled={busy} /></label>
-        <label>Date (DDMMYYYY)<input inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} disabled={busy} /></label>
-        <label>Amount<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} disabled={busy} /></label>
-        <label>Notes<input className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" disabled={busy} /></label>
-        <label className="upload">Background for calibration<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /></label>
+
+      <div className="designer-grid">
+        <section className="designer-card template-card">
+          <div className="card-heading"><span className="card-icon">▦</span><div><h3>Design template</h3><p>Reuse a saved cheque layout.</p></div></div>
+          <label>Choose template<select value={selectedTemplate} onChange={(e) => chooseTemplate(e.target.value)} disabled={busy}><option value="">Blank / no template</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.payee ? ` — ${t.payee}` : ""}</option>)}</select></label>
+          <div className="template-save-row"><input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="New template name" disabled={busy} /><button className="btn secondary" type="button" onClick={() => void saveTemplate(false)} disabled={busy}>Save template</button></div>
+          {selectedTemplate && <button className="text-action" type="button" onClick={() => void saveTemplate(true)} disabled={busy}>Update selected template</button>}
+        </section>
+
+        <section className="designer-card details-card">
+          <div className="card-heading"><span className="card-icon">▤</span><div><h3>Cheque details</h3><p>The number is stored only; it is not printed.</p></div></div>
+          <div className="details-grid">
+            <label><span>Actual cheque number <em>stored only</em></span><input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="e.g. 002536" disabled={busy} /></label>
+            <label><span>Payee</span><input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Payee name" disabled={busy} /></label>
+            <label><span>Date <em>DDMMYYYY</em></span><input inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="28082026" disabled={busy} /></label>
+            <label><span>Amount <em>2 decimals on cheque</em></span><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} placeholder="0.00" disabled={busy} /></label>
+            <label className="full"><span>Notes</span><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional note" disabled={busy} /></label>
+            <label className="upload full"><span>Background for calibration <em>screen only</em></span><input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /></label>
+          </div>
+        </section>
+
+        <section className="designer-card calibration-card">
+          <div className="card-heading"><span className="card-icon">⌖</span><div><h3>Field calibration</h3><p>Drag fields on the cheque or enter exact values.</p></div></div>
+          <div className="calibration-toolbar">
+            <label className="field-select">Field<select value={sel} onChange={(e) => setSel(e.target.value as Key)}><option value="acPayee">A/C PAYEE + lines</option><option value="date">Date</option><option value="payee">Payee</option><option value="amount">Numeric Amount</option><option value="words1">Amount in Words — Line 1</option><option value="words2">Amount in Words — Line 2</option></select></label>
+            <div className="calibration-note">{sel === "acPayee" ? "A/C PAYEE and its two calibration lines are controlled together." : "Width controls how far this field may extend."}</div>
+          </div>
+          <div className="calibration-grid">
+            <label>X<input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label>
+            <label>Y<input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label>
+            <label>Font<input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label>
+            <label>Width<input type="number" step="0.1" value={c.width ?? ""} onChange={(e) => field(sel, "width", +e.target.value)} /></label>
+            {(sel === "date") && <label>Digit spacing<input type="number" step="0.1" value={c.spacing ?? 0} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
+            {sel === "acPayee" && <>
+              <label>Angle<input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label>
+              <label>Line length<input type="number" step="0.1" value={c.width ?? 0} onChange={(e) => field(sel, "width", +e.target.value)} /></label>
+              <label>Line gap<input type="number" step="0.1" value={lineGap.toFixed(1)} onChange={(e) => { const gap = Math.max(0, +e.target.value); field("acPayee", "topLineY", -gap / 2); field("acPayee", "bottomLineY", gap / 2); }} /></label>
+            </>}
+          </div>
+          {sel === "acPayee" && <div className="calibration-hint">Tip: drag either line directly in the preview to fine-tune its vertical position. These calibration lines are never printed.</div>}
+        </section>
       </div>
-      <div className="settings"><h3>Field calibration</h3>
-        <label>Field<select value={sel} onChange={(e) => setSel(e.target.value as Key)}><option value="acPayee">A/C PAYEE</option><option value="chequeNumber">Cheque Number</option><option value="date">Date</option><option value="payee">Payee</option><option value="amount">Numeric Amount</option><option value="words1">Amount in Words — Line 1</option><option value="words2">Amount in Words — Line 2</option></select></label>
-        <label>X<input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label><label>Y<input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label><label>Font<input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label><label>Width<input type="number" step="0.1" value={c.width ?? ""} onChange={(e) => field(sel, "width", +e.target.value)} /></label>
-        {sel === "acPayee" && <><label>Angle<input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label><label>Top line Y<input type="number" step="0.1" value={c.topLineY ?? 0} onChange={(e) => field(sel, "topLineY", +e.target.value)} /></label><label>Bottom line Y<input type="number" step="0.1" value={c.bottomLineY ?? 0} onChange={(e) => field(sel, "bottomLineY", +e.target.value)} /></label></>}
-        {(sel === "date" || sel === "chequeNumber") && <label>Letter spacing<input type="number" step="0.1" value={c.spacing ?? 0} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
+
+      <div className="action-bar"><div><span className="status-dot" />{status}</div><div className="action-buttons"><button className="btn secondary" type="button" onClick={() => void save(false)} disabled={busy}>{busy ? "Working…" : "Save Draft"}</button><button className="btn" type="button" onClick={() => void save(true)} disabled={busy}>{busy ? "Working…" : "Save & Print"}</button></div></div>
+      {error && <div className="designer-error">{error}</div>}
+    </div>
+
+    <section className="designer-stage">
+      <div className="preview-heading"><div><div className="eyebrow">LIVE PREVIEW</div><h3>Print area</h3></div><span>Calibration guides are screen-only</span></div>
+      <div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={(e) => { move(e); moveLine(e); }} onPointerUp={() => { drag.current = null; lineDrag.current = null; }} onPointerCancel={() => { drag.current = null; lineDrag.current = null; }}>
+        <div className={`cal-item ac ${sel === "acPayee" ? "selected" : ""}`} style={{ left: `${cfg.acPayee.x}mm`, top: `${cfg.acPayee.y}mm`, fontSize: `${cfg.acPayee.font}pt`, transform: `rotate(${cfg.acPayee.angle}deg)` }} onPointerDown={(e) => down(e, "acPayee")}><span className="line" style={{ top: `${cfg.acPayee.topLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "top")} /><span>A/C PAYEE</span><span className="line" style={{ top: `${cfg.acPayee.bottomLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "bottom")} /></div>
+        <div className={`cal-item date ${sel === "date" ? "selected" : ""}`} style={itemStyle("date")} onPointerDown={(e) => down(e, "date")}>{datePreview}</div>
+        <div className={`cal-item payee ${sel === "payee" ? "selected" : ""}`} style={itemStyle("payee")} onPointerDown={(e) => down(e, "payee")}>{payee}</div>
+        <div className={`cal-item amount ${sel === "amount" ? "selected" : ""}`} style={itemStyle("amount")} onPointerDown={(e) => down(e, "amount")}>{formatIndianAmount(amount)}</div>
+        <div className={`cal-item words1 ${sel === "words1" ? "selected" : ""}`} style={itemStyle("words1")} onPointerDown={(e) => down(e, "words1")}>{w1}</div>
+        <div className={`cal-item words2 ${sel === "words2" ? "selected" : ""}`} style={itemStyle("words2")} onPointerDown={(e) => down(e, "words2")}>{w2}</div>
       </div>
-      <div className="action-row"><button className="btn secondary" type="button" onClick={() => void save(false)} disabled={busy}>Save Draft</button><button className="btn" type="button" onClick={() => void save(true)} disabled={busy}>Save &amp; Print</button></div>
-      {error && <div className="designer-error">{error}</div>}<div className="badge designer-status">{status}</div>
-    </aside>
-    <section className="designer-stage"><div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={(e) => { move(e); moveLine(e); }} onPointerUp={() => { drag.current = null; lineDrag.current = null; }} onPointerCancel={() => { drag.current = null; lineDrag.current = null; }}>
-      <div className="cal-item ac" style={{ left: `${cfg.acPayee.x}mm`, top: `${cfg.acPayee.y}mm`, fontSize: `${cfg.acPayee.font}pt`, transform: `rotate(${cfg.acPayee.angle}deg)` }} onPointerDown={(e) => down(e, "acPayee")}><span className="line" style={{ top: `${cfg.acPayee.topLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "top")} /><span>A/C PAYEE</span><span className="line" style={{ top: `${cfg.acPayee.bottomLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "bottom")} /></div>
-      <div className="cal-item" style={itemStyle("chequeNumber")} onPointerDown={(e) => down(e, "chequeNumber")}>{chequeNumber}</div>
-      <div className="cal-item date" style={itemStyle("date")} onPointerDown={(e) => down(e, "date")}>{date.replace(/(\d{2})(?=\d)/g, "$1 ")}</div>
-      <div className="cal-item payee" style={itemStyle("payee")} onPointerDown={(e) => down(e, "payee")}>{payee}</div>
-      <div className="cal-item amount" style={itemStyle("amount")} onPointerDown={(e) => down(e, "amount")}>{formatIndianAmount(amount)}</div>
-      <div className="cal-item words1" style={itemStyle("words1")} onPointerDown={(e) => down(e, "words1")}>{w1}</div>
-      <div className="cal-item words2" style={itemStyle("words2")} onPointerDown={(e) => down(e, "words2")}>{w2}</div>
-    </div></section>
+    </section>
   </div>;
 }
