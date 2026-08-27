@@ -1,8 +1,6 @@
 import {NextResponse} from "next/server";
 import {createClient} from "@/lib/supabase/server";
 
-const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -13,8 +11,9 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    const origin = new URL(request.url).origin;
     const {error} = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl()}/auth/callback?type=recovery`,
+      redirectTo: `${origin}/auth/callback?type=recovery`,
     });
 
     if (error) {
