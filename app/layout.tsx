@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./theme.css";
 import "./premium.css";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -22,15 +23,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="shell">
           {user ? (
             <header className="topbar">
-              <a className="brand" href="/dashboard" aria-label="Cheque Printing home">
+              <Link className="brand" href="/dashboard" aria-label="Cheque Printing home">
                 Cheque Printing
-              </a>
+              </Link>
               <nav className="nav" aria-label="Primary navigation">
                 {navItems.map((item) => (
-                  <a href={item.href} key={item.href}>
+                  <Link href={item.href} key={item.href}>
                     <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                     <span>{item.label}</span>
-                  </a>
+                  </Link>
                 ))}
               </nav>
               <LogoutButton />
