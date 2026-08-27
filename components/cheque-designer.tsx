@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 type Key = "acPayee" | "acPayeeTopLine" | "acPayeeBottomLine" | "date" | "payee" | "amount" | "words1" | "words2";
-type C = { x: number; y: number; font: number; width?: number; angle?: number; spacing?: number };
+type C = { x: number; y: number; font?: number; width?: number; angle?: number; spacing?: number };
 type Template = { id: string; name: string; payee: string; calibration: Record<Key, C> };
 type Props = { initialDraft?: { id: string; chequeNumber?: string | number; payee: string; date: string; amount: string; notes: string; config?: Record<string, C> } };
 type Drag = { k: Key; dx: number; dy: number };
@@ -214,12 +214,14 @@ export function ChequeDesigner({ initialDraft }: Props) {
     <div className="designer-layout">
       <aside className="designer-panel">
         <div className="panel-intro"><div className="panel-icon">✦</div><div><h2>Cheque details</h2><p>Enter the transaction and choose a saved layout.</p></div></div>
+
         <div className="designer-card">
           <div className="card-heading"><span>Template</span><small>Reuse calibration</small></div>
           <label>Choose template<select value={selectedTemplate} onChange={(e) => chooseTemplate(e.target.value)} disabled={busy}><option value="">Blank / no template</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.payee ? ` — ${t.payee}` : ""}</option>)}</select></label>
           <label>Template name<input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. SBI Current Account" disabled={busy} /></label>
           <div className="action-row"><button className="btn secondary" type="button" onClick={() => void saveTemplate(false)} disabled={busy}>Save as Template</button>{selectedTemplate && <button className="btn ghost" type="button" onClick={() => void saveTemplate(true)} disabled={busy}>Update</button>}</div>
         </div>
+
         <div className="designer-card">
           <div className="card-heading"><span>Cheque details</span><small>Cheque number is stored only</small></div>
           <label>Actual cheque number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="e.g. 002536" disabled={busy} /></label>
@@ -230,6 +232,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
           <label>Notes<input className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" disabled={busy} /></label>
           <label className="upload">Calibration background<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /><span>Upload original cheque image for on-screen alignment</span></label>
         </div>
+
         <div className="designer-card calibration-card">
           <div className="card-heading"><span>Field calibration</span><small>Drag on preview or edit values</small></div>
           <label>Field<select value={sel} onChange={(e) => setSel(e.target.value as Key)}><option value="acPayee">A/C PAYEE text</option><option value="acPayeeTopLine">A/C PAYEE — top line</option><option value="acPayeeBottomLine">A/C PAYEE — bottom line</option><option value="date">Date digits</option><option value="payee">Payee</option><option value="amount">Numeric amount</option><option value="words1">Amount in words — line 1</option><option value="words2">Amount in words — line 2</option></select></label>
@@ -242,16 +245,18 @@ export function ChequeDesigner({ initialDraft }: Props) {
           {sel === "words1" && <div className="helper">Line 1 stays on one line. Remaining words flow to line 2.</div>}
           {sel === "words2" && <div className="helper">Line 2 may wrap naturally if its calibrated width is reached.</div>}
         </div>
+
         <div className="save-bar"><button className="btn secondary" type="button" onClick={() => void save(false)} disabled={busy}>Save Draft</button><button className="btn" type="button" onClick={() => void save(true)} disabled={busy}>Save &amp; Print</button></div>
         {error && <div className="designer-error">{error}</div>}
         <div className="designer-status"><span className="status-dot" />{status}</div>
       </aside>
+
       <section className="designer-stage">
         <div className="preview-heading"><div><strong>Live cheque preview</strong><span>Calibration guides are for screen use only.</span></div><span className="preview-size">200 × 100 mm</span></div>
         <div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={move} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
           <div className={`cal-item ac-text ${sel === "acPayee" ? "selected" : ""}`} style={itemStyle("acPayee")} onPointerDown={(e) => down(e, "acPayee")}>A/C PAYEE</div>
-          <div className={`cal-item ac-line ac-top-line ${sel === "acPayeeTopLine" ? "selected" : ""}`} style={{ ...itemStyle("acPayeeTopLine"), transform: `rotate(${cfg.acPayee.angle ?? 0}deg)` }} onPointerDown={(e) => down(e, "acPayeeTopLine")} />
-          <div className={`cal-item ac-line ac-bottom-line ${sel === "acPayeeBottomLine" ? "selected" : ""}`} style={{ ...itemStyle("acPayeeBottomLine"), transform: `rotate(${cfg.acPayee.angle ?? 0}deg)` }} onPointerDown={(e) => down(e, "acPayeeBottomLine")} />
+          <div className={`cal-item ac-line ac-top-line ${sel === "acPayeeTopLine" ? "selected" : ""}`} style={itemStyle("acPayeeTopLine")} onPointerDown={(e) => down(e, "acPayeeTopLine")} />
+          <div className={`cal-item ac-line ac-bottom-line ${sel === "acPayeeBottomLine" ? "selected" : ""}`} style={itemStyle("acPayeeBottomLine")} onPointerDown={(e) => down(e, "acPayeeBottomLine")} />
           <div className={`cal-item date ${sel === "date" ? "selected" : ""}`} style={itemStyle("date")} onPointerDown={(e) => down(e, "date")}>{dateDigits.map((d, i) => <span key={`${i}-${d}`} style={{ marginRight: i === dateDigits.length - 1 ? 0 : `${cfg.date.spacing ?? 0.8}mm` }}>{d}</span>)}</div>
           <div className={`cal-item payee ${sel === "payee" ? "selected" : ""}`} style={itemStyle("payee")} onPointerDown={(e) => down(e, "payee")}>{payee}</div>
           <div className={`cal-item amount ${sel === "amount" ? "selected" : ""}`} style={itemStyle("amount")} onPointerDown={(e) => down(e, "amount")}>{formatIndianAmount(amount)}</div>
