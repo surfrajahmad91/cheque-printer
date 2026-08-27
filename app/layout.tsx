@@ -7,6 +7,7 @@ import Link from "next/link";
 import type {Metadata} from "next";
 import {createClient} from "@/lib/supabase/server";
 import {LogoutButton} from "@/components/logout-button";
+import {MobileNavigation} from "@/components/mobile-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +26,13 @@ const navItems = [
   {href:"/settings",label:"Settings",icon:"⚙"},
 ];
 
-function Navigation({mobile=false,isAdmin=false}:{mobile?:boolean;isAdmin?:boolean}) {
+function Navigation({isAdmin=false}:{isAdmin?:boolean}) {
   return <>
     {navItems.map(item => <Link href={item.href} key={item.href}>
       <span className="nav-icon" aria-hidden="true">{item.icon}</span>
       <span>{item.label}</span>
     </Link>)}
-    {isAdmin ? <Link className={mobile ? "mobile-admin-link" : "topbar-admin"} href="/admin/users">Admin</Link> : null}
+    {isAdmin ? <Link className="topbar-admin" href="/admin/users">Admin</Link> : null}
   </>;
 }
 
@@ -45,13 +46,7 @@ export default async function RootLayout({children}:{children:React.ReactNode}){
     {user ? <header className="topbar">
       <Link className="brand" href="/dashboard" aria-label="ChequeFlow home"><span className="brand-mark">✓</span><span>Cheque<span className="brand-accent">Flow</span></span></Link>
       <nav className="nav" aria-label="Primary navigation"><Navigation isAdmin={isAdmin}/></nav>
-      <details className="mobile-nav">
-        <summary aria-label="Open navigation">Menu</summary>
-        <div className="mobile-nav-panel">
-          <nav aria-label="Mobile navigation"><Navigation mobile isAdmin={isAdmin}/></nav>
-          <LogoutButton />
-        </div>
-      </details>
+      <MobileNavigation isAdmin={isAdmin}/>
       <LogoutButton />
     </header> : null}
     {children}
