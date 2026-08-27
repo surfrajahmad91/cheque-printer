@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type Key = "acPayee" | "chequeNumber" | "date" | "payee" | "amount" | "words1" | "words2";
 type C = { x: number; y: number; font: number; width?: number; angle?: number; spacing?: number; topLineY?: number; bottomLineY?: number };
@@ -70,7 +70,6 @@ function wrapTwo(s: string, w1: number, _w2: number, font1: number, _font2: numb
     const ctx = document.createElement("canvas").getContext("2d");
     measure = ctx ? (text, pt) => { ctx.font = `${pt * 96 / 72}px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`; return ctx.measureText(text).width; } : (text, pt) => text.length * pt * 0.55;
   } else measure = (text, pt) => text.length * pt * 0.55;
-
   const words = s.split(/\s+/).filter(Boolean);
   let line1 = "";
   let index = 0;
@@ -94,15 +93,12 @@ const isoDate = (s: string) => `${s.slice(4)}-${s.slice(2, 4)}-${s.slice(0, 2)}`
 function normalizeConfig(raw: any): Record<Key, C> {
   const out: Record<Key, C> = { ...initial };
   const source = raw && typeof raw === "object" ? raw : {};
-  (Object.keys(initial) as Key[]).forEach((k) => {
-    if (source[k] && typeof source[k] === "object") out[k] = { ...initial[k], ...source[k] };
-  });
+  (Object.keys(initial) as Key[]).forEach((k) => { if (source[k] && typeof source[k] === "object") out[k] = { ...initial[k], ...source[k] }; });
   return out;
 }
 
 export function ChequeDesigner({ initialDraft }: Props) {
   const router = useRouter();
-  const params = useSearchParams();
   const canvas = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const lineDrag = useRef<LineDrag | null>(null);
@@ -136,115 +132,85 @@ export function ChequeDesigner({ initialDraft }: Props) {
   useEffect(() => { void loadTemplates(); }, []);
 
   useEffect(() => {
-    const id = params.get("template");
-    if (!id || initialDraft) return;
+    if (initialDraft || typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("template");
+    if (!id) return;
     const found = templates.find((t) => t.id === id);
     if (found) {
-      setSelectedTemplate(found.id);
-      setPayee(found.payee);
-      setCfg(normalizeConfig(found.calibration));
-      setStatus(`Template loaded: ${found.name} ✓`);
+      setSelectedTemplate(found.id); setPayee(found.payee); setCfg(normalizeConfig(found.calibration)); setStatus(`Template loaded: ${found.name} ✓`);
     }
-  }, [params, templates, initialDraft]);
+  }, [templates, initialDraft]);
 
   const chooseTemplate = (id: string) => {
     setSelectedTemplate(id);
     if (!id) { setStatus("Ready"); return; }
     const t = templates.find((x) => x.id === id);
     if (!t) return;
-    setCfg(normalizeConfig(t.calibration));
-    setPayee(t.payee);
-    setStatus(`Template loaded: ${t.name} ✓`);
+    setCfg(normalizeConfig(t.calibration)); setPayee(t.payee); setStatus(`Template loaded: ${t.name} ✓`);
   };
 
   const field = (k: Key, f: keyof C, v: number) => setCfg((x) => ({ ...x, [k]: { ...x[k], [f]: v } }));
 
   const down = (e: React.PointerEvent, k: Key) => {
-    e.stopPropagation();
-    const r = canvas.current?.getBoundingClientRect();
-    if (!r) return;
-    drag.current = { k, dx: e.clientX - r.left - cfg[k].x * r.width / 200, dy: e.clientY - r.top - cfg[k].y * r.height / 100 };
-    setSel(k);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.stopPropagation(); const r = canvas.current?.getBoundingClientRect(); if (!r) return;
+    drag.current = { k, dx: e.clientX - r.left - cfg[k].x * r.width / 200, dy: e.clientY - r.top - cfg[k].y * r.height / 100 }; setSel(k); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const move = (e: React.PointerEvent) => {
-    const d = drag.current, r = canvas.current?.getBoundingClientRect();
-    if (!d || !r) return;
+    const d = drag.current, r = canvas.current?.getBoundingClientRect(); if (!d || !r) return;
     setCfg((c) => ({ ...c, [d.k]: { ...c[d.k], x: Math.max(0, Math.min(200, (e.clientX - r.left - d.dx) * 200 / r.width)), y: Math.max(0, Math.min(100, (e.clientY - r.top - d.dy) * 100 / r.height)) } }));
   };
   const lineDown = (e: React.PointerEvent, line: "top" | "bottom") => {
-    e.stopPropagation();
-    const r = canvas.current?.getBoundingClientRect();
-    if (!r) return;
-    const current = line === "top" ? cfg.acPayee.topLineY! : cfg.acPayee.bottomLineY!;
-    lineDrag.current = { line, offset: e.clientY - r.top - (cfg.acPayee.y + current) * r.height / 100 };
-    setSel("acPayee");
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.stopPropagation(); const r = canvas.current?.getBoundingClientRect(); if (!r) return;
+    const current = line === "top" ? cfg.acPayee.topLineY! : cfg.acPayee.bottomLineY!; lineDrag.current = { line, offset: e.clientY - r.top - (cfg.acPayee.y + current) * r.height / 100 }; setSel("acPayee"); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const moveLine = (e: React.PointerEvent) => {
-    const d = lineDrag.current, r = canvas.current?.getBoundingClientRect();
-    if (!d || !r) return;
+    const d = lineDrag.current, r = canvas.current?.getBoundingClientRect(); if (!d || !r) return;
     field("acPayee", d.line === "top" ? "topLineY" : "bottomLineY", (e.clientY - r.top - d.offset) * 100 / r.height - cfg.acPayee.y);
   };
 
   const saveTemplate = async (updateExisting = false) => {
-    setError("");
-    const name = templateName.trim() || templates.find((t) => t.id === selectedTemplate)?.name || "";
+    setError(""); const name = templateName.trim() || templates.find((t) => t.id === selectedTemplate)?.name || "";
     if (!name) { setError("Enter a template name."); return; }
     if (!payee.trim()) { setError("Enter the payee name before saving a template."); return; }
     setBusy(true);
     try {
-      const s = createClient();
-      const { data: { user } } = await s.auth.getUser();
-      if (!user) { router.push("/login"); return; }
+      const s = createClient(); const { data: { user } } = await s.auth.getUser(); if (!user) { router.push("/login"); return; }
       const layout = { version: 1, chequeWidthMm: 200, chequeHeightMm: 100, payee: payee.trim(), calibration: cfg };
       if (updateExisting && selectedTemplate) {
-        const r = await s.from("cheque_templates").update({ name, layout, updated_at: new Date().toISOString() }).eq("id", selectedTemplate).eq("user_id", user.id).select("id,name,layout").single();
-        if (r.error) throw r.error;
+        const r = await s.from("cheque_templates").update({ name, layout, updated_at: new Date().toISOString() }).eq("id", selectedTemplate).eq("user_id", user.id).select("id,name,layout").single(); if (r.error) throw r.error;
       } else {
-        const r = await s.from("cheque_templates").insert({ user_id: user.id, name, layout, cheque_width_mm: 200, cheque_height_mm: 100, is_active: true }).select("id,name,layout").single();
-        if (r.error) throw r.error;
+        const r = await s.from("cheque_templates").insert({ user_id: user.id, name, layout, cheque_width_mm: 200, cheque_height_mm: 100, is_active: true }).select("id,name,layout").single(); if (r.error) throw r.error;
         setSelectedTemplate(r.data.id);
       }
-      setTemplateName("");
-      setStatus(`Template saved ✓ — ${name}`);
-      await loadTemplates();
+      setTemplateName(""); setStatus(`Template saved ✓ — ${name}`); await loadTemplates();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to save template"); }
     finally { setBusy(false); }
   };
 
   const save = async (print = false) => {
-    setError("");
-    const normalizedChequeNumber = chequeNumber.trim();
+    setError(""); const normalizedChequeNumber = chequeNumber.trim();
     if (!normalizedChequeNumber || !/^\d+$/.test(normalizedChequeNumber) || !/[1-9]/.test(normalizedChequeNumber)) { setError("Enter the actual cheque number (positive whole number). Leading zeros are allowed."); return; }
     if (!payee.trim()) { setError("Enter the payee name."); return; }
     if (!validDate(date)) { setError("Enter a valid date in DDMMYYYY format."); return; }
     if (!/^(?:\d+)(?:\.\d{1,2})?$/.test(amount) || +amount <= 0) { setError("Enter a valid amount with up to 2 decimal places."); return; }
     setBusy(true); setStatus(print ? "Saving & preparing print…" : "Saving draft…");
     try {
-      const s = createClient();
-      const { data: { user } } = await s.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      let { data: payeeRow, error: pe } = await s.from("payees").select("id").eq("user_id", user.id).eq("name", payee.trim()).maybeSingle();
-      if (pe) throw pe;
+      const s = createClient(); const { data: { user } } = await s.auth.getUser(); if (!user) { router.push("/login"); return; }
+      let { data: payeeRow, error: pe } = await s.from("payees").select("id").eq("user_id", user.id).eq("name", payee.trim()).maybeSingle(); if (pe) throw pe;
       if (!payeeRow) { const r = await s.from("payees").insert({ user_id: user.id, name: payee.trim() }).select("id").single(); if (r.error) throw r.error; payeeRow = r.data; }
       const snap = { source: "native-cheque-designer", date, payee: payee.trim(), chequeNumber: normalizedChequeNumber, amount: +amount, amountInWords: words, calibration: cfg, templateId: selectedTemplate || null };
       if (!print) {
         if (initialDraft?.id) {
-          const r = await s.from("cheques").update({ cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, layout_snapshot: snap, notes: notes.trim(), updated_at: new Date().toISOString() }).eq("id", initialDraft.id).eq("user_id", user.id).eq("status", "draft").select("id").single();
-          if (r.error) throw r.error;
+          const r = await s.from("cheques").update({ cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, layout_snapshot: snap, notes: notes.trim(), updated_at: new Date().toISOString() }).eq("id", initialDraft.id).eq("user_id", user.id).eq("status", "draft").select("id").single(); if (r.error) throw r.error;
         } else {
-          const { data: existing, error: de } = await s.from("cheques").select("id").eq("user_id", user.id).eq("status", "draft").eq("cheque_number", normalizedChequeNumber).maybeSingle();
-          if (de) throw de;
+          const { data: existing, error: de } = await s.from("cheques").select("id").eq("user_id", user.id).eq("status", "draft").eq("cheque_number", normalizedChequeNumber).maybeSingle(); if (de) throw de;
           if (existing) { const r = await s.from("cheques").update({ payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, layout_snapshot: snap, notes: notes.trim(), updated_at: new Date().toISOString() }).eq("id", existing.id).eq("user_id", user.id).select("id").single(); if (r.error) throw r.error; }
           else { const r = await s.from("cheques").insert({ user_id: user.id, cheque_series_id: null, cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, status: "draft", layout_snapshot: snap, notes: notes.trim() }).select("id").single(); if (r.error) throw r.error; }
         }
       } else {
-        const { error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null });
-        if (pr) throw pr;
+        const { error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null }); if (pr) throw pr;
       }
-      setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓");
-      if (print) window.print();
+      setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓"); if (print) window.print();
     } catch (e) { setStatus("Unable to save"); setError(e instanceof Error ? e.message : "Unable to save cheque"); }
     finally { setBusy(false); }
   };
@@ -252,84 +218,39 @@ export function ChequeDesigner({ initialDraft }: Props) {
   const c = cfg[sel];
   const itemStyle = (k: Key): React.CSSProperties => ({ left: `${cfg[k].x}mm`, top: `${cfg[k].y}mm`, fontSize: `${cfg[k].font}pt`, width: cfg[k].width ? `${cfg[k].width}mm` : undefined, letterSpacing: cfg[k].spacing ? `${cfg[k].spacing}mm` : undefined });
 
-  return (
-    <div className="designer-wrap">
-      <aside className="designer-panel">
-        <h2>Cheque Designer</h2>
-        <p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p>
-
-        <div className="settings">
-          <h3>Design Template</h3>
-          <label>Choose template
-            <select value={selectedTemplate} onChange={(e) => chooseTemplate(e.target.value)} disabled={busy}>
-              <option value="">Blank / no template</option>
-              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.payee ? ` — ${t.payee}` : ""}</option>)}
-            </select>
-          </label>
-          <label>Template name<input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. SBI Current Account" disabled={busy} /></label>
-          <div className="action-row">
-            <button className="btn secondary" type="button" onClick={() => void saveTemplate(false)} disabled={busy}>Save as Template</button>
-            {selectedTemplate && <button className="btn secondary" type="button" onClick={() => void saveTemplate(true)} disabled={busy}>Update Template</button>}
-          </div>
-        </div>
-
-        <div className="input-grid">
-          <label>Cheque Number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="Actual cheque number" disabled={busy} /></label>
-          <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} disabled={busy} /></label>
-          <label>Date (DDMMYYYY)<input inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} disabled={busy} /></label>
-          <label>Amount<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} disabled={busy} /></label>
-          <label>Notes<input className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" disabled={busy} /></label>
-          <label className="upload">Background for calibration<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /></label>
-        </div>
-
-        <div className="settings">
-          <h3>Field calibration</h3>
-          <label>Field
-            <select value={sel} onChange={(e) => setSel(e.target.value as Key)}>
-              <option value="acPayee">A/C PAYEE</option>
-              <option value="chequeNumber">Cheque Number</option>
-              <option value="date">Date</option>
-              <option value="payee">Payee</option>
-              <option value="amount">Numeric Amount</option>
-              <option value="words1">Amount in Words — Line 1</option>
-              <option value="words2">Amount in Words — Line 2</option>
-            </select>
-          </label>
-          <label>X<input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label>
-          <label>Y<input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label>
-          <label>Font<input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label>
-          <label>Width<input type="number" step="0.1" value={c.width ?? ""} onChange={(e) => field(sel, "width", +e.target.value)} /></label>
-          {sel === "acPayee" && <>
-            <label>Angle<input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label>
-            <label>Top line Y<input type="number" step="0.1" value={c.topLineY ?? 0} onChange={(e) => field(sel, "topLineY", +e.target.value)} /></label>
-            <label>Bottom line Y<input type="number" step="0.1" value={c.bottomLineY ?? 0} onChange={(e) => field(sel, "bottomLineY", +e.target.value)} /></label>
-          </>}
-          {(sel === "date" || sel === "chequeNumber") && <label>Letter spacing<input type="number" step="0.1" value={c.spacing ?? 0} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
-        </div>
-
-        <div className="action-row">
-          <button className="btn secondary" type="button" onClick={() => void save(false)} disabled={busy}>Save Draft</button>
-          <button className="btn" type="button" onClick={() => void save(true)} disabled={busy}>Save &amp; Print</button>
-        </div>
-        {error && <div className="designer-error">{error}</div>}
-        <div className="badge designer-status">{status}</div>
-      </aside>
-
-      <section className="designer-stage">
-        <div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={(e) => { move(e); moveLine(e); }} onPointerUp={() => { drag.current = null; lineDrag.current = null; }} onPointerCancel={() => { drag.current = null; lineDrag.current = null; }}>
-          <div className="cal-item ac" style={{ left: `${cfg.acPayee.x}mm`, top: `${cfg.acPayee.y}mm`, fontSize: `${cfg.acPayee.font}pt`, transform: `rotate(${cfg.acPayee.angle}deg)` }} onPointerDown={(e) => down(e, "acPayee")}>
-            <span className="line" style={{ top: `${cfg.acPayee.topLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "top")} />
-            <span>A/C PAYEE</span>
-            <span className="line" style={{ top: `${cfg.acPayee.bottomLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "bottom")} />
-          </div>
-          <div className="cal-item" style={itemStyle("chequeNumber")} onPointerDown={(e) => down(e, "chequeNumber")}>{chequeNumber}</div>
-          <div className="cal-item date" style={itemStyle("date")} onPointerDown={(e) => down(e, "date")}>{date.replace(/(\d{2})(?=\d)/g, "$1 ")}</div>
-          <div className="cal-item payee" style={itemStyle("payee")} onPointerDown={(e) => down(e, "payee")}>{payee}</div>
-          <div className="cal-item amount" style={itemStyle("amount")} onPointerDown={(e) => down(e, "amount")}>{formatIndianAmount(amount)}</div>
-          <div className="cal-item words1" style={itemStyle("words1")} onPointerDown={(e) => down(e, "words1")}>{w1}</div>
-          <div className="cal-item words2" style={itemStyle("words2")} onPointerDown={(e) => down(e, "words2")}>{w2}</div>
-        </div>
-      </section>
-    </div>
-  );
+  return <div className="designer-wrap">
+    <aside className="designer-panel">
+      <h2>Cheque Designer</h2><p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p>
+      <div className="settings"><h3>Design Template</h3>
+        <label>Choose template<select value={selectedTemplate} onChange={(e) => chooseTemplate(e.target.value)} disabled={busy}><option value="">Blank / no template</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.payee ? ` — ${t.payee}` : ""}</option>)}</select></label>
+        <label>Template name<input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. SBI Current Account" disabled={busy} /></label>
+        <div className="action-row"><button className="btn secondary" type="button" onClick={() => void saveTemplate(false)} disabled={busy}>Save as Template</button>{selectedTemplate && <button className="btn secondary" type="button" onClick={() => void saveTemplate(true)} disabled={busy}>Update Template</button>}</div>
+      </div>
+      <div className="input-grid">
+        <label>Cheque Number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="Actual cheque number" disabled={busy} /></label>
+        <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} disabled={busy} /></label>
+        <label>Date (DDMMYYYY)<input inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} disabled={busy} /></label>
+        <label>Amount<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} disabled={busy} /></label>
+        <label>Notes<input className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" disabled={busy} /></label>
+        <label className="upload">Background for calibration<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /></label>
+      </div>
+      <div className="settings"><h3>Field calibration</h3>
+        <label>Field<select value={sel} onChange={(e) => setSel(e.target.value as Key)}><option value="acPayee">A/C PAYEE</option><option value="chequeNumber">Cheque Number</option><option value="date">Date</option><option value="payee">Payee</option><option value="amount">Numeric Amount</option><option value="words1">Amount in Words — Line 1</option><option value="words2">Amount in Words — Line 2</option></select></label>
+        <label>X<input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label><label>Y<input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label><label>Font<input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label><label>Width<input type="number" step="0.1" value={c.width ?? ""} onChange={(e) => field(sel, "width", +e.target.value)} /></label>
+        {sel === "acPayee" && <><label>Angle<input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label><label>Top line Y<input type="number" step="0.1" value={c.topLineY ?? 0} onChange={(e) => field(sel, "topLineY", +e.target.value)} /></label><label>Bottom line Y<input type="number" step="0.1" value={c.bottomLineY ?? 0} onChange={(e) => field(sel, "bottomLineY", +e.target.value)} /></label></>}
+        {(sel === "date" || sel === "chequeNumber") && <label>Letter spacing<input type="number" step="0.1" value={c.spacing ?? 0} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
+      </div>
+      <div className="action-row"><button className="btn secondary" type="button" onClick={() => void save(false)} disabled={busy}>Save Draft</button><button className="btn" type="button" onClick={() => void save(true)} disabled={busy}>Save &amp; Print</button></div>
+      {error && <div className="designer-error">{error}</div>}<div className="badge designer-status">{status}</div>
+    </aside>
+    <section className="designer-stage"><div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={(e) => { move(e); moveLine(e); }} onPointerUp={() => { drag.current = null; lineDrag.current = null; }} onPointerCancel={() => { drag.current = null; lineDrag.current = null; }}>
+      <div className="cal-item ac" style={{ left: `${cfg.acPayee.x}mm`, top: `${cfg.acPayee.y}mm`, fontSize: `${cfg.acPayee.font}pt`, transform: `rotate(${cfg.acPayee.angle}deg)` }} onPointerDown={(e) => down(e, "acPayee")}><span className="line" style={{ top: `${cfg.acPayee.topLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "top")} /><span>A/C PAYEE</span><span className="line" style={{ top: `${cfg.acPayee.bottomLineY}mm`, width: `${cfg.acPayee.width}mm` }} onPointerDown={(e) => lineDown(e, "bottom")} /></div>
+      <div className="cal-item" style={itemStyle("chequeNumber")} onPointerDown={(e) => down(e, "chequeNumber")}>{chequeNumber}</div>
+      <div className="cal-item date" style={itemStyle("date")} onPointerDown={(e) => down(e, "date")}>{date.replace(/(\d{2})(?=\d)/g, "$1 ")}</div>
+      <div className="cal-item payee" style={itemStyle("payee")} onPointerDown={(e) => down(e, "payee")}>{payee}</div>
+      <div className="cal-item amount" style={itemStyle("amount")} onPointerDown={(e) => down(e, "amount")}>{formatIndianAmount(amount)}</div>
+      <div className="cal-item words1" style={itemStyle("words1")} onPointerDown={(e) => down(e, "words1")}>{w1}</div>
+      <div className="cal-item words2" style={itemStyle("words2")} onPointerDown={(e) => down(e, "words2")}>{w2}</div>
+    </div></section>
+  </div>;
 }
