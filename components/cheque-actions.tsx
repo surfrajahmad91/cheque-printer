@@ -1,65 +1,9 @@
 "use client";
-
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-
-export function ChequeActions({ chequeId, status, notes: initialNotes, printCount = 0 }: { chequeId: string; status: string; notes: string; printCount?: number }) {
-  const [notes, setNotes] = useState(initialNotes);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const router = useRouter();
-  const locked = status === "void" || status === "cancelled";
-
-  async function saveNotes() {
-    setBusy(true); setMessage("");
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); setMessage("Please sign in again."); return; }
-    const { error } = await supabase.from("cheques").update({ notes, updated_at: new Date().toISOString() }).eq("id", chequeId).eq("user_id", user.id);
-    setBusy(false); setMessage(error ? error.message : "Notes saved ✓");
-    if (!error) router.refresh();
-  }
-
-  async function reprint() {
-    if (locked) return;
-    if (!confirm(`Reprint this cheque? This will create print #${printCount + 1} in the permanent print history.`)) return;
-    setBusy(true); setMessage("");
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); setMessage("Please sign in again."); return; }
-    const { error } = await supabase.rpc("record_cheque_print", { p_cheque_id: chequeId, p_notes: notes.trim() });
-    if (error) { setBusy(false); setMessage(error.message); return; }
-    setMessage("Reprint recorded ✓ — opening print dialog…");
-    setBusy(false);
-    window.print();
-    router.refresh();
-  }
-
-  async function changeStatus(next: "cancelled" | "void") {
-    if (locked) return;
-    const wording = next === "void" ? "VOID this cheque? This should be used when it must never be printed again." : "Cancel this cheque? A cancelled cheque cannot be printed again.";
-    if (!confirm(wording)) return;
-    setBusy(true); setMessage("");
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); setMessage("Please sign in again."); return; }
-    const { error } = await supabase.from("cheques").update({ status: next, updated_at: new Date().toISOString() }).eq("id", chequeId).eq("user_id", user.id).neq("status", "void");
-    setBusy(false); setMessage(error ? error.message : `Cheque marked ${next} ✓`);
-    if (!error) router.refresh();
-  }
-
-  return (
-    <section className="card actions-card">
-      <div className="toolbar compact"><div><h2>Notes & actions</h2><p className="muted">Manage this cheque without changing its saved calibration.</p></div></div>
-      <textarea className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note, reference, or reason…" rows={4} disabled={busy} />
-      <div className="action-row">
-        <button className="btn" disabled={busy} onClick={saveNotes}>{busy ? "Working…" : "Save notes"}</button>
-        {!locked && status !== "draft" && <button className="btn secondary" disabled={busy} onClick={reprint}>{busy ? "Preparing…" : `Reprint${printCount ? ` #${printCount + 1}` : ""}`}</button>}
-        {!locked && status !== "cancelled" && <button className="btn danger" disabled={busy} onClick={() => changeStatus("cancelled")}>Cancel cheque</button>}
-        {!locked && <button className="btn danger" disabled={busy} onClick={() => changeStatus("void")}>Void cheque</button>}
-      </div>
-      {message && <p className="form-message">{message}</p>}
-    </section>
-  );
-}
+export function ChequeActions({chequeId,status,notes:initialNotes,printCount=0}:{chequeId:string;status:string;notes:string;printCount?:number}){const [notes,setNotes]=useState(initialNotes),[busy,setBusy]=useState(false),[message,setMessage]=useState("");const router=useRouter();const locked=status==="void"||status==="cancelled";
+async function saveNotes(){setBusy(true);setMessage("");const s=createClient();const {data:{user}}=await s.auth.getUser();if(!user){setBusy(false);setMessage("Please sign in again.");return}const {error}=await s.from("cheques").update({notes,updated_at:new Date().toISOString()}).eq("id",chequeId).eq("user_id",user.id);setBusy(false);setMessage(error?error.message:"Notes saved ✓");if(!error)router.refresh()}
+async function reprint(){if(locked)return;if(!confirm(`Reprint this cheque? This will create print #${printCount+1} in the permanent print history.`))return;setBusy(true);setMessage("");const s=createClient();const {data:{user}}=await s.auth.getUser();if(!user){setBusy(false);setMessage("Please sign in again.");return}const {error}=await s.rpc("record_cheque_print",{p_cheque_id:chequeId,p_notes:notes.trim()});if(error){setBusy(false);setMessage(error.message);return}router.push(`/cheques/${chequeId}/print`)}
+async function changeStatus(next:"cancelled"|"void"){if(locked)return;const wording=next==="void"?"VOID this cheque? This should be used when it must never be printed again.":"Cancel this cheque? A cancelled cheque cannot be printed again.";if(!confirm(wording))return;setBusy(true);setMessage("");const s=createClient();const {data:{user}}=await s.auth.getUser();if(!user){setBusy(false);setMessage("Please sign in again.");return}const {error}=await s.from("cheques").update({status:next,updated_at:new Date().toISOString()}).eq("id",chequeId).eq("user_id",user.id).neq("status","void");setBusy(false);setMessage(error?error.message:`Cheque marked ${next} ✓`);if(!error)router.refresh()}
+return <section className="card actions-card"><div className="toolbar compact"><div><h2>Notes & actions</h2><p className="muted">Manage this cheque without changing its saved calibration.</p></div></div><textarea className="notes-input" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add a note, reference, or reason…" rows={4} disabled={busy}/><div className="action-row"><button className="btn" disabled={busy} onClick={saveNotes}>{busy?"Working…":"Save notes"}</button>{!locked&&status!=="draft"&&<button className="btn secondary" disabled={busy} onClick={reprint}>{busy?"Preparing…":`Reprint #${printCount+1}`}</button>}{!locked&&status!=="cancelled"&&<button className="btn danger" disabled={busy} onClick={()=>changeStatus("cancelled")}>Cancel cheque</button>}{!locked&&<button className="btn danger" disabled={busy} onClick={()=>changeStatus("void")}>Void cheque</button>}</div>{message&&<p className="form-message">{message}</p>}</section>}
