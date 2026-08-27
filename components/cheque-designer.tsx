@@ -1,18 +1,295 @@
 "use client";
-import { useMemo,useRef,useState } from "react"; import { createClient } from "@/lib/supabase/client"; import { useRouter } from "next/navigation";
-type Key="acPayee"|"date"|"payee"|"amount"|"words1"|"words2"; type C={x:number;y:number;font:number;width?:number;angle?:number;spacing?:number;topLineY?:number;bottomLineY?:number};
-const initial:Record<Key,C>={acPayee:{x:14,y:12,font:12,width:24,angle:-40,topLineY:-2.3,bottomLineY:2.3},date:{x:154,y:10,font:12,spacing:.8},payee:{x:30,y:28,font:12,width:90},amount:{x:154,y:29,font:12,width:35},words1:{x:30,y:39,font:11,width:120},words2:{x:30,y:46,font:11,width:120}};
-const ones=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"],tens=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"]; const u100=(n:number)=>n<20?ones[n]:tens[Math.floor(n/10)]+(n%10?` ${ones[n%10]}`:"");
-function group(n:number):string{if(n<100)return u100(n);if(n<1000)return `${ones[Math.floor(n/100)]} hundred${n%100?` ${u100(n%100)}`:""}`;if(n<100000)return `${u100(Math.floor(n/1000))} thousand${n%1000?` ${group(n%1000)}`:""}`;if(n<10000000)return `${u100(Math.floor(n/100000))} lakh${n%100000?` ${group(n%100000)}`:""}`;return `${group(Math.floor(n/10000000))} crore${n%10000000?` ${group(n%10000000)}`:""}`}
-const properCase=(s:string)=>s.replace(/\b[a-z]/g,m=>m.toUpperCase());
-function amountWords(s:string){const clean=s.trim();if(!clean)return "";const [wholePart,decimalPart=""] = clean.split(".");const a=Number(wholePart);const p=Number(decimalPart.padEnd(2,"0"));if(!Number.isFinite(a)||!Number.isFinite(p)||a<0||p<0)return "";const words=`${group(a)}${p?` and ${group(p)} Paise`:""} Only`;return properCase(words)}
-const formatIndianAmount=(s:string)=>{const n=Number(s);return Number.isFinite(n)&&n>=0?n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2}):"0.00"};
-// Wrap by an estimated character capacity derived from the configured physical width and font size.
-// The previous multiplier allowed far too many characters, so normal long cheque amounts rarely reached line 2.
-function wrapTwo(s:string,w1:number,w2:number,font1:number,font2:number){if(!s)return["",""];const charsPerMm1=Math.max(0.28,0.95-(font1-8)*0.045),charsPerMm2=Math.max(0.28,0.95-(font2-8)*0.045);const aMax=Math.max(8,Math.floor(w1*charsPerMm1)),bMax=Math.max(8,Math.floor(w2*charsPerMm2));let a="",b="",second=false;for(const w of s.split(" ")){if(!second&&(!a||(`${a} ${w}`).length<=aMax))a+=(a?" ":"")+w;else{second=true;if(!b||(`${b} ${w}`).length<=bMax)b+=(b?" ":"")+w}}return[a,b]}; function validDate(s:string){if(!/^\d{8}$/.test(s))return false;const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4);return y>=1900&&y<=2100&&m>=1&&m<=12&&d>=1&&d<=new Date(y,m,0).getDate()}; const isoDate=(s:string)=>`${s.slice(4)}-${s.slice(2,4)}-${s.slice(0,2)}`;
-type Props={initialDraft?:{id:string;chequeNumber?:string|number;payee:string;date:string;amount:string;notes:string;config?:Record<Key,C>}}; type Drag={k:Key;dx:number;dy:number}; type LineDrag={line:"top"|"bottom";offset:number};
-export function ChequeDesigner({initialDraft}:Props){const router=useRouter(),canvas=useRef<HTMLDivElement>(null),drag=useRef<Drag|null>(null),lineDrag=useRef<LineDrag|null>(null);const[cfg,setCfg]=useState(initialDraft?.config||initial),[sel,setSel]=useState<Key>("payee"),[chequeNumber,setChequeNumber]=useState(initialDraft?.chequeNumber!=null?String(initialDraft.chequeNumber):""),[payee,setPayee]=useState(initialDraft?.payee||""),[date,setDate]=useState(initialDraft?.date||""),[amount,setAmount]=useState(initialDraft?.amount||""),[notes,setNotes]=useState(initialDraft?.notes||""),[bg,setBg]=useState<string|null>(null),[busy,setBusy]=useState(false),[status,setStatus]=useState(initialDraft?"Draft loaded ✓":"Ready"),[error,setError]=useState("");const words=useMemo(()=>amountWords(amount),[amount]),[w1,w2]=useMemo(()=>wrapTwo(words,cfg.words1.width||120,cfg.words2.width||120,cfg.words1.font||11,cfg.words2.font||11),[words,cfg.words1.width,cfg.words2.width,cfg.words1.font,cfg.words2.font]);const field=(k:Key,f:keyof C,v:number)=>setCfg(x=>({...x,[k]:{...x[k],[f]:v}}));
-const down=(e:React.PointerEvent,k:Key)=>{e.stopPropagation();const r=canvas.current?.getBoundingClientRect();if(!r)return;drag.current={k,dx:e.clientX-r.left-cfg[k].x*r.width/200,dy:e.clientY-r.top-cfg[k].y*r.height/100};setSel(k);(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};const move=(e:React.PointerEvent)=>{const d=drag.current,r=canvas.current?.getBoundingClientRect();if(!d||!r)return;setCfg(c=>({...c,[d.k]:{...c[d.k],x:Math.max(0,Math.min(200,(e.clientX-r.left-d.dx)*200/r.width)),y:Math.max(0,Math.min(100,(e.clientY-r.top-d.dy)*100/r.height))}}))};const lineDown=(e:React.PointerEvent,line:"top"|"bottom")=>{e.stopPropagation();const r=canvas.current?.getBoundingClientRect();if(!r)return;const current=line==="top"?cfg.acPayee.topLineY!:cfg.acPayee.bottomLineY!;lineDrag.current={line,offset:e.clientY-r.top-(cfg.acPayee.y+current)*r.height/100};setSel("acPayee");(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};const moveLine=(e:React.PointerEvent)=>{const d=lineDrag.current,r=canvas.current?.getBoundingClientRect();if(!d||!r)return;field("acPayee",d.line==="top"?"topLineY":"bottomLineY",(e.clientY-r.top-d.offset)*100/r.height-cfg.acPayee.y)};
-const save=async(print=false)=>{setError("");const normalizedChequeNumber=chequeNumber.trim();if(!normalizedChequeNumber||!/^[0-9]+$/.test(normalizedChequeNumber)||!/[1-9]/.test(normalizedChequeNumber)){setError("Enter the actual cheque number (positive whole number). Leading zeros are allowed.");return}if(!payee.trim()){setError("Enter the payee name.");return}if(!validDate(date)){setError("Enter a valid date in DDMMYYYY format.");return}if(!/^(?:\d+)(?:\.\d{1,2})?$/.test(amount)||+amount<=0){setError("Enter a valid amount with up to 2 decimal places.");return}setBusy(true);setStatus(print?"Saving & preparing print…":"Saving draft…");try{const s=createClient(),{data:{user}}=await s.auth.getUser();if(!user){router.push("/login");return}let{data:payeeRow,error:pe}=await s.from("payees").select("id").eq("user_id",user.id).eq("name",payee.trim()).maybeSingle();if(pe)throw pe;if(!payeeRow){const r=await s.from("payees").insert({user_id:user.id,name:payee.trim()}).select("id").single();if(r.error)throw r.error;payeeRow=r.data}const snap={source:"native-cheque-designer",date,payee:payee.trim(),chequeNumber:normalizedChequeNumber,amount:+amount,amountInWords:words,calibration:cfg};
-if(!print){if(initialDraft?.id){const r=await s.from("cheques").update({cheque_number:normalizedChequeNumber,payee_id:payeeRow.id,cheque_date:isoDate(date),amount:+amount,amount_in_words:words,layout_snapshot:snap,notes:notes.trim(),updated_at:new Date().toISOString()}).eq("id",initialDraft.id).eq("user_id",user.id).eq("status","draft").select("id").single();if(r.error)throw r.error}else{const{data:existing,error:de}=await s.from("cheques").select("id").eq("user_id",user.id).eq("status","draft").eq("cheque_number",normalizedChequeNumber).maybeSingle();if(de)throw de;if(existing){const r=await s.from("cheques").update({payee_id:payeeRow.id,cheque_date:isoDate(date),amount:+amount,amount_in_words:words,layout_snapshot:snap,notes:notes.trim(),updated_at:new Date().toISOString()}).eq("id",existing.id).eq("user_id",user.id).select("id").single();if(r.error)throw r.error}else{const r=await s.from("cheques").insert({user_id:user.id,cheque_series_id:null,cheque_number:normalizedChequeNumber,payee_id:payeeRow.id,cheque_date:isoDate(date),amount:+amount,amount_in_words:words,status:"draft",layout_snapshot:snap,notes:notes.trim()}).select("id").single();if(r.error)throw r.error}}}else{const{error:pr}=await s.rpc("create_and_print_cheque",{p_cheque_number:normalizedChequeNumber,p_payee_id:payeeRow.id,p_cheque_date:isoDate(date),p_amount:+amount,p_amount_in_words:words,p_layout_snapshot:snap,p_notes:notes.trim(),p_draft_id:initialDraft?.id||null});if(pr)throw pr}setStatus(print?"Saved ✓ — printing…":"Draft saved ✓");if(print)window.print()}catch(e){setStatus("Unable to save");setError(e instanceof Error?e.message:"Unable to save cheque")}finally{setBusy(false)}};
-const c=cfg[sel];return <div className="native-designer"><aside className="designer-panel"><h2>Cheque Designer</h2><p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p><div className="input-grid"><label>Cheque Number<input inputMode="numeric" value={chequeNumber} onChange={e=>setChequeNumber(e.target.value.replace(/\D/g,"").slice(0,18))} placeholder="Enter cheque number"/></label><label>Payee<input value={payee} onChange={e=>setPayee(e.target.value)}/></label><label>Date (DDMMYYYY)<input inputMode="numeric" maxLength={8} value={date} onChange={e=>setDate(e.target.value.replace(/\D/g,"").slice(0,8))} placeholder="DDMMYYYY"/></label><label>Amount<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value.replace(/[^\d.]/g,"").replace(/(\..*)\./g,"$1"))} placeholder="0.00"/></label><label>Notes<input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Optional"/></label></div><label>Background for calibration<input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setBg(URL.createObjectURL(f))}}/></label><div className="settings"><h3>{sel} settings</h3>{(["x","y","font","width"] as const).map(f=>f in c?<label key={f}>{f.toUpperCase()}<input type="number" step=".1" value={(c as any)[f]??0} onChange={e=>field(sel,f,Number(e.target.value))}/></label>:null)}{sel==="acPayee"&&<><label>Angle<input type="number" value={c.angle} onChange={e=>field(sel,"angle",+e.target.value)}/></label><label>Top line Y<input type="number" step=".1" value={c.topLineY} onChange={e=>field(sel,"topLineY",+e.target.value)}/></label><label>Bottom line Y<input type="number" step=".1" value={c.bottomLineY} onChange={e=>field(sel,"bottomLineY",+e.target.value)}/></label></>}{sel==="date"&&<label>Character spacing<input type="number" step=".1" value={c.spacing} onChange={e=>field(sel,"spacing",+e.target.value)}/></label>}</div><div className="action-row"><button className="btn secondary" disabled={busy} onClick={()=>void save(false)}>Save Draft</button><button className="btn" disabled={busy} onClick={()=>void save(true)}>Save & Print</button></div>{error&&<div role="alert" className="error-message">{error}</div>}<span className="badge">{status}</span></aside><section className="designer-stage"><div ref={canvas} className="cheque-canvas" style={{backgroundImage:bg?`url(${bg})`:undefined}} onPointerMove={move} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null}><div className="cal-item ac" onPointerDown={e=>down(e,"acPayee")} style={{left:`${cfg.acPayee.x}mm`,top:`${cfg.acPayee.y}mm`}}><span className="line" onPointerDown={e=>lineDown(e,"top")} onPointerMove={moveLine} onPointerUp={()=>lineDrag.current=null} style={{width:`${cfg.acPayee.width}mm`,top:`${cfg.acPayee.topLineY}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}}/><span style={{fontSize:`${cfg.acPayee.font}pt`,transform:`rotate(${cfg.acPayee.angle}deg)`}}>A/C PAYEE</span><span className="line" onPointerDown={e=>lineDown(e,"bottom")} onPointerMove={moveLine} onPointerUp={()=>lineDrag.current=null} style={{width:`${cfg.acPayee.width}mm`,top:`${cfg.acPayee.bottomLineY}mm`,transform:`rotate(${cfg.acPayee.angle}deg)`}}/></div><div className="cal-item date" onPointerDown={e=>down(e,"date")} style={{left:`${cfg.date.x}mm`,top:`${cfg.date.y}mm`,fontSize:`${cfg.date.font}pt`,letterSpacing:`${cfg.date.spacing}mm`}}>{date||"DDMMYYYY"}</div><div className="cal-item payee" onPointerDown={e=>down(e,"payee")} style={{left:`${cfg.payee.x}mm`,top:`${cfg.payee.y}mm`,fontSize:`${cfg.payee.font}pt`,width:`${cfg.payee.width}mm`}}>{payee||"Payee"}</div><div className="cal-item amount" onPointerDown={e=>down(e,"amount")} style={{left:`${cfg.amount.x}mm`,top:`${cfg.amount.y}mm`,fontSize:`${cfg.amount.font}pt`,width:`${cfg.amount.width}mm`}}>{formatIndianAmount(amount)}</div><div className="cal-item words1" onPointerDown={e=>down(e,"words1")} style={{left:`${cfg.words1.x}mm`,top:`${cfg.words1.y}mm`,fontSize:`${cfg.words1.font}pt`,width:`${cfg.words1.width}mm`}}>{w1}</div><div className="cal-item words2" onPointerDown={e=>down(e,"words2")} style={{left:`${cfg.words2.x}mm`,top:`${cfg.words2.y}mm`,fontSize:`${cfg.words2.font}pt`,width:`${cfg.words2.width}mm`}}>{w2}</div></div></section></div>}
+
+import { useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+
+type Key = "acPayee" | "date" | "payee" | "amount" | "words1" | "words2";
+type C = { x: number; y: number; font: number; width?: number; angle?: number; spacing?: number; topLineY?: number; bottomLineY?: number };
+
+type Props = {
+  initialDraft?: {
+    id: string;
+    chequeNumber?: string | number;
+    payee: string;
+    date: string;
+    amount: string;
+    notes: string;
+    config?: Record<Key, C>;
+  };
+};
+
+type Drag = { k: Key; dx: number; dy: number };
+type LineDrag = { line: "top" | "bottom"; offset: number };
+
+const initial: Record<Key, C> = {
+  acPayee: { x: 14, y: 12, font: 12, width: 24, angle: -40, topLineY: -2.3, bottomLineY: 2.3 },
+  date: { x: 154, y: 10, font: 12, spacing: 0.8 },
+  payee: { x: 30, y: 28, font: 12, width: 90 },
+  amount: { x: 154, y: 29, font: 12, width: 35 },
+  words1: { x: 30, y: 39, font: 11, width: 120 },
+  words2: { x: 30, y: 46, font: 11, width: 120 },
+};
+
+const ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+const u100 = (n: number) => n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? ` ${ones[n % 10]}` : "");
+
+function group(n: number): string {
+  if (n < 100) return u100(n);
+  if (n < 1000) return `${ones[Math.floor(n / 100)]} hundred${n % 100 ? ` ${u100(n % 100)}` : ""}`;
+  if (n < 100000) return `${u100(Math.floor(n / 1000))} thousand${n % 1000 ? ` ${group(n % 1000)}` : ""}`;
+  if (n < 10000000) return `${u100(Math.floor(n / 100000))} lakh${n % 100000 ? ` ${group(n % 100000)}` : ""}`;
+  return `${group(Math.floor(n / 10000000))} crore${n % 10000000 ? ` ${group(n % 10000000)}` : ""}`;
+}
+
+const properCase = (s: string) => s.replace(/\b[a-z]/g, (m) => m.toUpperCase());
+
+function amountWords(s: string) {
+  const clean = s.trim();
+  if (!clean) return "";
+  const [wholePart, decimalPart = ""] = clean.split(".");
+  const a = Number(wholePart);
+  const p = Number(decimalPart.padEnd(2, "0"));
+  if (!Number.isFinite(a) || !Number.isFinite(p) || a < 0 || p < 0) return "";
+  const words = `${group(a)}${p ? ` and ${group(p)} Paise` : ""} Only`;
+  return properCase(words);
+}
+
+const formatIndianAmount = (s: string) => {
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0
+    ? n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00";
+};
+
+/**
+ * Split amount-in-words by the actual rendered width, not by character count.
+ * Line 1 is deliberately single-line: the first word that does not fit is moved
+ * to line 2. Line 2 is allowed to wrap naturally inside its configured width.
+ */
+function wrapTwo(s: string, w1: number, w2: number, font1: number, font2: number): [string, string] {
+  if (!s) return ["", ""];
+
+  // CSS mm at the browser's standard CSS pixel conversion.
+  const pxPerMm = 96 / 25.4;
+  const width1Px = Math.max(1, w1 * pxPerMm);
+  const width2Px = Math.max(1, w2 * pxPerMm);
+
+  // Match the designer's font stack and pt-based font sizing as closely as the
+  // browser canvas measurement API allows.
+  let measure: (text: string, fontPt: number) => number;
+  if (typeof document !== "undefined") {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx) {
+      measure = (text, fontPt) => {
+        ctx.font = `${fontPt * (96 / 72)}px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        return ctx.measureText(text).width;
+      };
+    } else {
+      measure = (text, fontPt) => text.length * fontPt * 0.55;
+    }
+  } else {
+    measure = (text, fontPt) => text.length * fontPt * 0.55;
+  }
+
+  const words = s.split(/\s+/).filter(Boolean);
+  let line1 = "";
+  let index = 0;
+
+  // Fit complete words only. Never allow line 1 to clip or wrap.
+  for (; index < words.length; index++) {
+    const candidate = line1 ? `${line1} ${words[index]}` : words[index];
+    if (measure(candidate, font1) <= width1Px) {
+      line1 = candidate;
+    } else {
+      break;
+    }
+  }
+
+  // If even the first word is wider than line 1, keep it intact rather than
+  // clipping it. It will visually overflow, which is preferable to losing text.
+  if (!line1 && words.length) {
+    line1 = words[0];
+    index = 1;
+  }
+
+  // Put all remaining words into line 2. CSS handles the second line's normal
+  // wrapping; this calculation only determines where line 1 ends.
+  const line2 = words.slice(index).join(" ");
+
+  // Touch width2 so the function explicitly documents that line 2's configured
+  // width is the wrapping boundary in the rendered element.
+  void width2Px;
+  void font2;
+
+  return [line1, line2];
+}
+
+function validDate(s: string) {
+  if (!/^\d{8}$/.test(s)) return false;
+  const d = +s.slice(0, 2), m = +s.slice(2, 4), y = +s.slice(4);
+  return y >= 1900 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= new Date(y, m, 0).getDate();
+}
+
+const isoDate = (s: string) => `${s.slice(4)}-${s.slice(2, 4)}-${s.slice(0, 2)}`;
+
+export function ChequeDesigner({ initialDraft }: Props) {
+  const router = useRouter();
+  const canvas = useRef<HTMLDivElement>(null);
+  const drag = useRef<Drag | null>(null);
+  const lineDrag = useRef<LineDrag | null>(null);
+  const [cfg, setCfg] = useState(initialDraft?.config || initial);
+  const [sel, setSel] = useState<Key>("payee");
+  const [chequeNumber, setChequeNumber] = useState(initialDraft?.chequeNumber != null ? String(initialDraft.chequeNumber) : "");
+  const [payee, setPayee] = useState(initialDraft?.payee || "");
+  const [date, setDate] = useState(initialDraft?.date || "");
+  const [amount, setAmount] = useState(initialDraft?.amount || "");
+  const [notes, setNotes] = useState(initialDraft?.notes || "");
+  const [bg, setBg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(initialDraft ? "Draft loaded ✓" : "Ready");
+  const [error, setError] = useState("");
+
+  const words = useMemo(() => amountWords(amount), [amount]);
+  const [w1, w2] = useMemo(
+    () => wrapTwo(words, cfg.words1.width || 120, cfg.words2.width || 120, cfg.words1.font || 11, cfg.words2.font || 11),
+    [words, cfg.words1.width, cfg.words2.width, cfg.words1.font, cfg.words2.font]
+  );
+
+  const field = (k: Key, f: keyof C, v: number) => setCfg((x) => ({ ...x, [k]: { ...x[k], [f]: v } }));
+
+  const down = (e: React.PointerEvent, k: Key) => {
+    e.stopPropagation();
+    const r = canvas.current?.getBoundingClientRect();
+    if (!r) return;
+    drag.current = { k, dx: e.clientX - r.left - cfg[k].x * r.width / 200, dy: e.clientY - r.top - cfg[k].y * r.height / 100 };
+    setSel(k);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const move = (e: React.PointerEvent) => {
+    const d = drag.current, r = canvas.current?.getBoundingClientRect();
+    if (!d || !r) return;
+    setCfg((c) => ({ ...c, [d.k]: { ...c[d.k], x: Math.max(0, Math.min(200, (e.clientX - r.left - d.dx) * 200 / r.width)), y: Math.max(0, Math.min(100, (e.clientY - r.top - d.dy) * 100 / r.height)) } }));
+  };
+
+  const lineDown = (e: React.PointerEvent, line: "top" | "bottom") => {
+    e.stopPropagation();
+    const r = canvas.current?.getBoundingClientRect();
+    if (!r) return;
+    const current = line === "top" ? cfg.acPayee.topLineY! : cfg.acPayee.bottomLineY!;
+    lineDrag.current = { line, offset: e.clientY - r.top - (cfg.acPayee.y + current) * r.height / 100 };
+    setSel("acPayee");
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const moveLine = (e: React.PointerEvent) => {
+    const d = lineDrag.current, r = canvas.current?.getBoundingClientRect();
+    if (!d || !r) return;
+    field("acPayee", d.line === "top" ? "topLineY" : "bottomLineY", (e.clientY - r.top - d.offset) * 100 / r.height - cfg.acPayee.y);
+  };
+
+  const save = async (print = false) => {
+    setError("");
+    const normalizedChequeNumber = chequeNumber.trim();
+    if (!normalizedChequeNumber || !/^[0-9]+$/.test(normalizedChequeNumber) || !/[1-9]/.test(normalizedChequeNumber)) {
+      setError("Enter the actual cheque number (positive whole number). Leading zeros are allowed.");
+      return;
+    }
+    if (!payee.trim()) { setError("Enter the payee name."); return; }
+    if (!validDate(date)) { setError("Enter a valid date in DDMMYYYY format."); return; }
+    if (!/^(?:\d+)(?:\.\d{1,2})?$/.test(amount) || +amount <= 0) { setError("Enter a valid amount with up to 2 decimal places."); return; }
+
+    setBusy(true);
+    setStatus(print ? "Saving & preparing print…" : "Saving draft…");
+    try {
+      const s = createClient();
+      const { data: { user } } = await s.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
+      let { data: payeeRow, error: pe } = await s.from("payees").select("id").eq("user_id", user.id).eq("name", payee.trim()).maybeSingle();
+      if (pe) throw pe;
+      if (!payeeRow) {
+        const r = await s.from("payees").insert({ user_id: user.id, name: payee.trim() }).select("id").single();
+        if (r.error) throw r.error;
+        payeeRow = r.data;
+      }
+
+      const snap = { source: "native-cheque-designer", date, payee: payee.trim(), chequeNumber: normalizedChequeNumber, amount: +amount, amountInWords: words, calibration: cfg };
+
+      if (!print) {
+        if (initialDraft?.id) {
+          const r = await s.from("cheques").update({ cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, layout_snapshot: snap, notes: notes.trim(), updated_at: new Date().toISOString() }).eq("id", initialDraft.id).eq("user_id", user.id).eq("status", "draft").select("id").single();
+          if (r.error) throw r.error;
+        } else {
+          const { data: existing, error: de } = await s.from("cheques").select("id").eq("user_id", user.id).eq("status", "draft").eq("cheque_number", normalizedChequeNumber).maybeSingle();
+          if (de) throw de;
+          if (existing) {
+            const r = await s.from("cheques").update({ payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, layout_snapshot: snap, notes: notes.trim(), updated_at: new Date().toISOString() }).eq("id", existing.id).eq("user_id", user.id).select("id").single();
+            if (r.error) throw r.error;
+          } else {
+            const r = await s.from("cheques").insert({ user_id: user.id, cheque_series_id: null, cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, status: "draft", layout_snapshot: snap, notes: notes.trim() }).select("id").single();
+            if (r.error) throw r.error;
+          }
+        }
+      } else {
+        const { error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null });
+        if (pr) throw pr;
+      }
+
+      setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓");
+      if (print) window.print();
+    } catch (e) {
+      setStatus("Unable to save");
+      setError(e instanceof Error ? e.message : "Unable to save cheque");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const c = cfg[sel];
+
+  return (
+    <div className="native-designer">
+      <aside className="designer-panel">
+        <h2>Cheque Designer</h2>
+        <p className="muted">200 × 100 mm • drag fields or calibrate precisely.</p>
+        <div className="input-grid">
+          <label>Cheque Number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="Enter cheque number" /></label>
+          <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} /></label>
+          <label>Date (DDMMYYYY)<input inputMode="numeric" maxLength={8} value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="DDMMYYYY" /></label>
+          <label>Amount<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} placeholder="0.00" /></label>
+          <label>Notes<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" /></label>
+        </div>
+        <label>Background for calibration<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setBg(URL.createObjectURL(f)); }} /></label>
+        <div className="settings">
+          <h3>{sel} settings</h3>
+          {(["x", "y", "font", "width"] as const).map((f) => f in c ? <label key={f}>{f.toUpperCase()}<input type="number" step=".1" value={(c as any)[f] ?? 0} onChange={(e) => field(sel, f, Number(e.target.value))} /></label> : null)}
+          {sel === "acPayee" && <><label>Angle<input type="number" value={c.angle} onChange={(e) => field(sel, "angle", +e.target.value)} /></label><label>Top line Y<input type="number" step=".1" value={c.topLineY} onChange={(e) => field(sel, "topLineY", +e.target.value)} /></label><label>Bottom line Y<input type="number" step=".1" value={c.bottomLineY} onChange={(e) => field(sel, "bottomLineY", +e.target.value)} /></label></>}
+          {sel === "date" && <label>Character spacing<input type="number" step=".1" value={c.spacing} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
+        </div>
+        <div className="action-row"><button className="btn secondary" disabled={busy} onClick={() => void save(false)}>Save Draft</button><button className="btn" disabled={busy} onClick={() => void save(true)}>Save & Print</button></div>
+        {error && <div role="alert" className="error-message">{error}</div>}
+        <span className="badge">{status}</span>
+      </aside>
+
+      <section className="designer-stage">
+        <div ref={canvas} className="cheque-canvas" style={{ backgroundImage: bg ? `url(${bg})` : undefined }} onPointerMove={move} onPointerUp={() => { drag.current = null; lineDrag.current = null; }} onPointerCancel={() => { drag.current = null; lineDrag.current = null; }}>
+          <div className="cal-item ac" onPointerDown={(e) => down(e, "acPayee")} style={{ left: `${cfg.acPayee.x}mm`, top: `${cfg.acPayee.y}mm` }}>
+            <span className="line" onPointerDown={(e) => lineDown(e, "top")} onPointerMove={moveLine} onPointerUp={() => { lineDrag.current = null; }} style={{ width: `${cfg.acPayee.width}mm`, top: `${cfg.acPayee.topLineY}mm`, transform: `rotate(${cfg.acPayee.angle}deg)` }} />
+            <span style={{ fontSize: `${cfg.acPayee.font}pt`, transform: `rotate(${cfg.acPayee.angle}deg)` }}>A/C PAYEE</span>
+            <span className="line" onPointerDown={(e) => lineDown(e, "bottom")} onPointerMove={moveLine} onPointerUp={() => { lineDrag.current = null; }} style={{ width: `${cfg.acPayee.width}mm`, top: `${cfg.acPayee.bottomLineY}mm`, transform: `rotate(${cfg.acPayee.angle}deg)` }} />
+          </div>
+
+          <div className="cal-item date" onPointerDown={(e) => down(e, "date")} style={{ left: `${cfg.date.x}mm`, top: `${cfg.date.y}mm`, fontSize: `${cfg.date.font}pt`, letterSpacing: `${cfg.date.spacing}mm` }}>{date || "DDMMYYYY"}</div>
+          <div className="cal-item payee" onPointerDown={(e) => down(e, "payee")} style={{ left: `${cfg.payee.x}mm`, top: `${cfg.payee.y}mm`, fontSize: `${cfg.payee.font}pt`, width: `${cfg.payee.width}mm` }}>{payee || "Payee"}</div>
+          <div className="cal-item amount" onPointerDown={(e) => down(e, "amount")} style={{ left: `${cfg.amount.x}mm`, top: `${cfg.amount.y}mm`, fontSize: `${cfg.amount.font}pt`, width: `${cfg.amount.width}mm` }}>{formatIndianAmount(amount)}</div>
+
+          <div className="cal-item words1" onPointerDown={(e) => down(e, "words1")} style={{ left: `${cfg.words1.x}mm`, top: `${cfg.words1.y}mm`, fontSize: `${cfg.words1.font}pt`, width: `${cfg.words1.width}mm` }}>{w1}</div>
+          <div className="cal-item words2" onPointerDown={(e) => down(e, "words2")} style={{ left: `${cfg.words2.x}mm`, top: `${cfg.words2.y}mm`, fontSize: `${cfg.words2.font}pt`, width: `${cfg.words2.width}mm` }}>{w2}</div>
+        </div>
+      </section>
+    </div>
+  );
+}
