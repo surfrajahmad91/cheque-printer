@@ -9,6 +9,9 @@ export async function GET(request:Request){
     const s=await createClient();
     const {error}=await s.auth.exchangeCodeForSession(code);
     if(error)return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`,url.origin));
+    if(type==="recovery")return NextResponse.redirect(new URL("/reset-password",url.origin));
+    await s.auth.signOut();
+    return NextResponse.redirect(new URL("/account-pending?stage=verified",url.origin));
   }
-  return NextResponse.redirect(new URL(type==="recovery"?"/reset-password":"/dashboard",url.origin));
+  return NextResponse.redirect(new URL(type==="recovery"?"/reset-password":"/account-pending?stage=verify",url.origin));
 }
