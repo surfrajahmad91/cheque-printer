@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./theme.css";
 import "./premium.css";
+import "./polish.css";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
