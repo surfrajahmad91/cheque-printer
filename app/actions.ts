@@ -10,6 +10,15 @@ export async function login(formData:FormData){
   const password=String(formData.get("password")||"");
   const {error}=await s.auth.signInWithPassword({email,password});
   if(error)redirect(`/login?error=${encodeURIComponent(error.message)}`);
+
+  const {data:claimsData}=await s.auth.getClaims();
+  const userId=claimsData?.claims?.sub as string|undefined;
+  if(!userId){await s.auth.signOut();redirect("/login?error=Unable%20to%20start%20your%20session");}
+  const {data:profile}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
+  if(profile?.account_status!=="approved"){
+    await s.auth.signOut();
+    redirect(`/account-pending?status=${encodeURIComponent(profile?.account_status||"pending")}`);
+  }
   redirect("/dashboard");
 }
 
@@ -20,8 +29,8 @@ export async function signup(formData:FormData){
   const name=String(formData.get("name")||"").trim();
   const {data,error}=await s.auth.signUp({email,password,options:{data:{name},emailRedirectTo:`${siteUrl()}/auth/callback`}});
   if(error)redirect(`/signup?error=${encodeURIComponent(error.message)}`);
-  if(data.session)redirect("/dashboard");
-  redirect("/login?error=Check%20your%20email%20to%20confirm%20your%20account");
+  if(data.session)await s.auth.signOut();
+  redirect(`/account-pending?stage=${data.session?"review":"verify"}`);
 }
 
 export async function requestPasswordReset(formData:FormData){
