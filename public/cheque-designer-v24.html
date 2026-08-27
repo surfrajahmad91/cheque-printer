@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A/C PAYEE Calibration — drag either line independently</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:#e9edf2;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#111;
+  }
+  .toolbar{
+    position:sticky;
+    top:0;
+    z-index:10;
+    background:#fff;
+    border-bottom:1px solid #cfd5dc;
+    padding:12px;
+    display:flex;
+    gap:14px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .toolbar h1{font-size:18px;margin:0 15px 0 0}
+  #controls{
+    max-height:calc(100vh - 20px);
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    padding-right:8px;
+    box-sizing:border-box;
+  }
+
+  .field{display:flex;align-items:center;gap:6px}
+  .field label{font-size:13px;font-weight:600}
+  input{
+    width:82px;
+    padding:7px 8px;
+    border:1px solid #aeb6c0;
+    border-radius:5px;
+    font-size:14px;
+  }
+  button{
+    padding:8px 13px;
+    border:1px solid #8d98a5;
+    border-radius:5px;
+    background:#fff;
+    cursor:pointer;
+    font-weight:600;
+  }
+  button:hover{background:#f2f4f6}
+  .stage{
+    padding:30px;
+    overflow:auto;
+  }
+  /*
+    IMPORTANT:
+    The cheque itself is ALWAYS 200mm x 100mm.
+    The CSS transform only scales the on-screen preview so it fits.
+    Printing removes the preview scaling.
+  */
+  #cheque{
+    position:relative;
+    width:200mm;
+    height:100mm;
+    box-sizing:border-box;
+    background:#fff;
+    border:1px solid #555;
+    box-shadow:0 2px 12px rgba(0,0,0,.18);
+    background:#fff;
+    border:1px solid #777;
+    margin:0 auto;
+    overflow:hidden;
+    transform-origin:top left;
+  }
+
+  /* A/C PAYEE is one single unit: top line + text + bottom line. */
+  #acPayee{
+    position:absolute;
+    left:0;
+    top:0;
+    width:40mm;
+    height:8mm;
+    transform-origin:center center;
+    cursor:move;
+    user-select:none;
+    touch-action:none;
+  }
+  #acPayee .line{
+    position:absolute;
+    left:0;
+    width:100%;
+    height:0;
+    border-top:1px solid #111;
+  }
+  #acPayee .topLine{top:0}
+  #acPayee .bottomLine{bottom:0}
+
+  #acPayee .text{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    white-space:nowrap;
+    font-family:Arial,Helvetica,sans-serif;
+    font-weight:700;
+    line-height:1;
+  }
+
+  .selected{
+    outline:1px dashed #1976d2;
+    outline-offset:2px;
+  }
+
+  #dateField{
+    position:absolute;
+    z-index:5;
+    min-height:4mm;
+    white-space:nowrap;
+    cursor:move;
+    user-select:none;
+    touch-action:none;
+    transform-origin:left top;
+    font-family:Arial,Helvetica,sans-serif;
+    font-weight:600;
+    line-height:1;
+    color:#111;
+  }
+  #dateField .digit{
+    display:inline-block;
+    margin-right:0;
+  }
+  #dateField .digit:last-child{margin-right:0}
+
+  /* Payee is a free-text field. The border is only a calibration aid and
+     is hidden automatically during printing. */
+  #payeeField{
+    position:absolute;
+    z-index:4;
+    min-width:5mm;
+    min-height:4mm;
+    padding:0;
+    margin:0;
+    background:transparent;
+    border:1px dashed transparent;
+    outline:0;
+    cursor:move;
+    user-select:none;
+    touch-action:none;
+    transform-origin:left top;
+    white-space:pre-wrap;
+    overflow:hidden;
+    font-family:Arial,Helvetica,sans-serif;
+    font-weight:400;
+    line-height:1.2;
+  }
+  #payeeField.selected{
+    border-color:#1976d2;
+    background:rgba(25,118,210,.03);
+  }
+  @media print{
+  #cheque{border:none!important;box-shadow:none!important}
+
+    #payeeField{border-color:transparent!important;background:transparent!important;outline:none!important}
+  }
+  #amountField{position:absolute;z-index:4;min-width:5mm;min-height:4mm;padding:0;margin:0;background:transparent;border:1px dashed transparent;cursor:move;user-select:none;touch-action:none;transform-origin:left top;white-space:nowrap;overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-weight:600;line-height:1}
+  #amountField.selected{border-color:transparent;background:transparent}
+  @media print{#amountField{border-color:transparent!important;background:transparent!important;outline:none!important}}
+
+  .wordsField{
+    position:absolute;
+    z-index:6;
+    min-width:5mm;
+    min-height:4mm;
+    padding:0;
+    margin:0;
+    background:transparent;
+    border:1px dashed #1976d2;
+    outline:0;
+    cursor:move;
+    user-select:none;
+    touch-action:none;
+    font-family:Arial,Helvetica,sans-serif;
+    font-weight:400;
+    line-height:1.15;
+    white-space:nowrap;
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  .wordsField.selected{
+    border-color:#1976d2;
+    background:rgba(25,118,210,.03);
+  }
+  @media print{
+    .wordsField{border-color:transparent!important;background:transparent!important;outline:none!important}
+  }
+
+  .instructions{
+    max-width:900px;
+    margin:0 auto 18px;
+    font-size:13px;
+    color:#4b5563;
+  }
+
+  @page{
+    size:200mm 100mm;
+    margin:0;
+  }
+
+  @media print{
+    body{background:#fff}
+    .toolbar,.instructions{display:none!important}
+    .stage{padding:0}
+    #cheque{
+      margin:0;
+      border:0;
+      transform:none!important;
+      width:200mm;
+      height:100mm;
+    }
+    #acPayee{outline:none!important}
+  }
+</style>
+
+<style id="visual-v17">
+:root{
+  --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --panel:#ffffff;
+  --soft:#f8fafc; --accent:#2563eb; --accent-soft:#eff6ff;
+}
+body{
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif!important;
+  background:#f3f4f6!important; color:var(--ink)!important;
+}
+#controls{
+  background:#fff!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  box-shadow:0 8px 28px rgba(15,23,42,.08)!important;
+  padding:14px!important;
+}
+#controls .field{
+  display:grid!important;
+  grid-template-columns:minmax(120px,1fr) minmax(110px,1fr)!important;
+  gap:8px!important;
+  align-items:center!important;
+  padding:7px 0!important;
+  border-bottom:1px solid #f1f5f9!important;
+}
+#controls .field label{
+  color:#475569!important;
+  font-size:12px!important;
+  font-weight:600!important;
+}
+#controls input{
+  width:100%!important; box-sizing:border-box!important;
+  border:1px solid #d1d5db!important; border-radius:8px!important;
+  padding:8px 9px!important; background:#fff!important;
+  color:#111827!important; outline:none!important;
+}
+#controls input:focus{
+  border-color:#2563eb!important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12)!important;
+}
+#controls button{
+  border:0!important; border-radius:9px!important; padding:9px 12px!important;
+  background:#2563eb!important; color:white!important; font-weight:700!important;
+  cursor:pointer!important;
+}
+#controls button:hover{filter:brightness(.96)}
+.v17-section{
+  margin:14px 0 10px; border:1px solid var(--line); border-radius:12px;
+  overflow:hidden; background:#fff;
+}
+.v17-title{
+  display:flex; align-items:center; gap:8px; padding:10px 11px;
+  background:linear-gradient(90deg,#f8fafc,#fff);
+  border-bottom:1px solid var(--line); font-size:13px; font-weight:800;
+}
+.v17-icon{
+  width:25px;height:25px;border-radius:7px;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent);font-size:13px;
+}
+.v17-help{font-size:10px;color:#94a3b8;font-weight:500;margin-left:auto}
+.v17-body{padding:3px 10px 7px}
+.v17-tip{
+  font-size:11px;color:#64748b;background:#f8fafc;border-radius:8px;
+  padding:7px 9px;margin:7px 0 8px;line-height:1.4;
+}
+#workspace{
+  background:transparent!important;
+}
+#workspace::before{
+  content:"CHEQUE PRINT PREVIEW • 200 × 100 mm";
+  display:block; text-align:center; margin:4px 0 10px;
+  font-size:12px; font-weight:800; letter-spacing:.4px; color:#64748b;
+}
+@media(max-width:700px){
+  #controls{border-radius:0!important;box-shadow:0 3px 15px rgba(15,23,42,.08)!important}
+  #controls .field{grid-template-columns:1fr 1.15fr!important}
+  .v17-title{position:sticky;top:0;z-index:10}
+  .v17-help{display:none}
+}
+</style>
+<style id="independent-line-hit-area">
+#topLine,#bottomLine{z-index:20!important;pointer-events:auto!important;touch-action:none;}
+
+@media print{
+  html,body{background:#fff!important;margin:0!important;padding:0!important;}
+  #controls{display:none!important;}
+  #workspace::before,
+  #cheque::before,
+  #cheque::after{display:none!important;}
+  #cheque{
+    border:none!important;
+    box-shadow:none!important;
+    outline:none!important;
+  }
+  #acPayee,
+  #topLine,
+  #bottomLine,
+  #dateField,
+  #payeeField,
+  #amountField,
+  #wordsLine1,
+  #wordsLine2{
+    border-color:transparent!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    outline:none!important;
+  }
+  #wordsLine1,#wordsLine2{border:none!important;background:transparent!important;outline:none!important;}
+  #amountField.selected,
+  .wordsField.selected{
+    border-color:transparent!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    outline:none!important;
+  }
+}
+</style>
+
+<style id="background-calibration-fixed-v22">
+.background-tool{
+  flex:1 1 100%;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:9px 10px;
+  margin-top:2px;
+  border:1px solid #dbe3ec;
+  border-radius:10px;
+  background:#f8fafc;
+}
+.background-tool-title{
+  font-size:12px;
+  font-weight:800;
+  color:#334155;
+  margin-right:2px;
+}
+.background-upload input{display:none}
+.background-upload span{
+  display:inline-block;
+  padding:7px 10px;
+  border-radius:7px;
+  background:#2563eb;
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.background-tool button{
+  padding:7px 10px;
+  font-size:12px;
+}
+.background-opacity{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  color:#64748b;
+}
+.background-opacity input{
+  width:90px;
+  padding:0;
+  border:0;
+}
+.background-note{
+  font-size:10px;
+  color:#64748b;
+}
+#calibrationBackground{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:100% 100%;
+  opacity:.45;
+}
+#dateField,#payeeField,#amountField,#wordsLine1,#wordsLine2,#acPayee{
+  z-index:5;
+}
+#calibrationBackground.has-image{
+  display:block;
+}
+@media(max-width:700px){
+  .background-tool{
+    flex:1 1 100%;
+    align-items:flex-start;
+  }
+  .background-tool-title,
+  .background-note{
+    flex:1 1 100%;
+  }
+  .background-opacity{
+    flex:1 1 100%;
+  }
+}
+@media print{
+  #calibrationBackground,
+  .background-tool{
+    display:none!important;
+  }
+}
+</style>
+
+@media print{
+  .selected{
+    outline:none!important;
+    border-color:transparent!important;
+    background:transparent!important;
+  }
+}
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>A/C PAYEE Calibration</h1>
+
+  <div class="background-tool">
+    <div class="background-tool-title">🖼️ Original Cheque Background</div>
+    <label class="background-upload">
+      <input id="backgroundUpload" type="file" accept="image/*">
+      <span>Upload image</span>
+    </label>
+    <button id="backgroundRemove" type="button">Remove</button>
+    <label class="background-opacity">
+      <span>Opacity</span>
+      <input id="backgroundOpacity" type="range" min="10" max="100" value="45">
+    </label>
+    <span class="background-note">Screen calibration only — never prints</span>
+  </div>
+
+  <div class="field">
+    <label>X (mm)</label>
+    <input id="x" type="number" step="0.1" value="10">
+  </div>
+
+  <div class="field">
+    <label>Y (mm)</label>
+    <input id="y" type="number" step="0.1" value="10">
+  </div>
+
+  <div class="field">
+    <label>Font (pt)</label>
+    <input id="font" type="number" step="0.5" value="12">
+  </div>
+
+  <div class="field">
+    <label>Angle (°)</label>
+    <input id="angle" type="number" step="1" value="-40">
+  </div>
+
+  <div class="field">
+    <label>Line width (mm)</label>
+    <input id="lineWidth" type="number" step="0.1" value="25">
+  </div>
+
+  <div class="field">
+    <label>Top line Y (mm)</label>
+    <input id="topLineY" type="number" step="0.05" value="-2.30">
+  </div>
+
+  <div class="field">
+    <label>Bottom line Y (mm)</label>
+    <input id="bottomLineY" type="number" step="0.05" value="2.30">
+  </div>
+
+  <div class="field">
+    <label>Line gap (mm)</label>
+    <input id="lineGap" type="number" min="-10" max="10" step="0.05" value="0">
+  </div>
+
+  <div class="field">
+    <label>Date DDMMYYYY</label>
+    <input id="dateInput" type="text" inputmode="numeric" maxlength="8" value="28082026">
+  </div>
+
+  <div class="field">
+    <label>Date X (mm)</label>
+    <input id="dateX" type="number" step="0.1" value="150">
+  </div>
+
+  <div class="field">
+    <label>Date Y (mm)</label>
+    <input id="dateY" type="number" step="0.1" value="8">
+  </div>
+
+  <div class="field">
+    <label>Date Font (pt)</label>
+    <input id="dateFont" type="number" step="0.5" value="12">
+  </div>
+
+  <div class="field">
+    <label>Digit Space (mm)</label>
+    <input id="dateSpacing" type="number" step="0.05" min="0" value="0.8">
+  </div>
+
+  <div class="field">
+    <label>Payee</label>
+    <input id="payeeInput" type="text" value="Laxmi Dairy">
+  </div>
+
+  <div class="field">
+    <label>Payee X (mm)</label>
+    <input id="payeeX" type="number" step="0.1" value="30">
+  </div>
+
+  <div class="field">
+    <label>Payee Y (mm)</label>
+    <input id="payeeY" type="number" step="0.1" value="27">
+  </div>
+
+  <div class="field">
+    <label>Payee Font (pt)</label>
+    <input id="payeeFont" type="number" step="0.5" value="12">
+  </div>
+
+  <div class="field">
+    <label>Payee Width (mm)</label>
+    <input id="payeeWidth" type="number" min="5" step="0.1" value="70">
+  </div>
+  <div class="field"><label>Amount (₹)</label><input id="amountInput" type="number" min="0" step="0.01" value="2500"></div>
+  <div class="field"><label>Rs X (mm)</label><input id="amountX" type="number" step="0.1" value="155"></div>
+  <div class="field"><label>Rs Y (mm)</label><input id="amountY" type="number" step="0.1" value="28"></div>
+  <div class="field"><label>Rs Font (pt)</label><input id="amountFont" type="number" step="0.5" value="12"></div>
+  <div class="field"><label>Rs Width (mm)</label><input id="amountWidth" type="number" min="5" step="0.1" value="35"></div>
+
+  <div class="field"><label>Rupees Words</label><input id="wordsPreview" type="text" readonly value="Two Thousand Five Hundred Only"></div>
+  <div class="field"><label>Words Font (pt)</label><input id="wordsFont" type="number" step="0.5" value="11"></div>
+
+  <div class="field"><label>Line 1 X (mm)</label><input id="words1X" type="number" step="0.1" value="35"></div>
+  <div class="field"><label>Line 1 Y (mm)</label><input id="words1Y" type="number" step="0.1" value="38"></div>
+  <div class="field"><label>Line 1 Width (mm)</label><input id="words1Width" type="number" min="5" step="0.1" value="120"></div>
+  <div class="field"><label>Line 1 Height (mm)</label><input id="words1Height" type="number" min="4" step="0.1" value="6"></div>
+
+  <div class="field"><label>Line 2 X (mm)</label><input id="words2X" type="number" step="0.1" value="35"></div>
+  <div class="field"><label>Line 2 Y (mm)</label><input id="words2Y" type="number" step="0.1" value="44"></div>
+  <div class="field"><label>Line 2 Width (mm)</label><input id="words2Width" type="number" min="5" step="0.1" value="120"></div>
+  <div class="field"><label>Line 2 Height (mm)</label><input id="words2Height" type="number" min="4" step="0.1" value="6"></div>
+
+  <button id="reset">Reset</button>
+  <button id="print">Print</button>
+</div>
+
+<div class="instructions">
+  The working cheque area is exactly <b>200 mm × 100 mm</b>.
+  A/C PAYEE is between two lines. The top and bottom lines are independently
+  movable: drag either line directly. Use the Top line Y / Bottom line Y
+  controls for fine calibration.
+</div>
+
+<div class="stage" id="stage">
+  <div id="cheque">
+    <div id="calibrationBackground" aria-hidden="true"></div>
+    <div id="dateField" data-object="date"></div>
+    <div id="payeeField" data-object="payee">Laxmi Dairy</div>
+    <div id="amountField" data-object="amount">2,500.00</div>
+    <div id="wordsLine1" class="wordsField" data-object="words1"></div>
+    <div id="wordsLine2" class="wordsField" data-object="words2"></div>
+
+    <div id="acPayee">
+      <div class="line topLine"></div>
+      <div class="text">A/C PAYEE</div>
+      <div class="line bottomLine"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const cheque = document.getElementById('cheque');
+const calibrationBackground = document.getElementById('calibrationBackground');
+const backgroundUpload = document.getElementById('backgroundUpload');
+const backgroundRemove = document.getElementById('backgroundRemove');
+const backgroundOpacity = document.getElementById('backgroundOpacity');
+let backgroundObjectURL = null;
+
+backgroundUpload.addEventListener('change', function(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+
+  if(backgroundObjectURL){
+    URL.revokeObjectURL(backgroundObjectURL);
+  }
+
+  backgroundObjectURL = URL.createObjectURL(file);
+  calibrationBackground.style.backgroundImage = 'url("' + backgroundObjectURL + '")';
+  calibrationBackground.style.opacity = Number(backgroundOpacity.value) / 100;
+  calibrationBackground.classList.add('has-image');
+});
+
+backgroundOpacity.addEventListener('input', function(){
+  calibrationBackground.style.opacity = Number(this.value) / 100;
+});
+
+backgroundRemove.addEventListener('click', function(){
+  if(backgroundObjectURL){
+    URL.revokeObjectURL(backgroundObjectURL);
+    backgroundObjectURL = null;
+  }
+  calibrationBackground.style.backgroundImage = 'none';
+  calibrationBackground.classList.remove('has-image');
+  backgroundUpload.value = '';
+});
+
+const ac = document.getElementById('acPayee');
+const text = ac.querySelector('.text');
+const topLine = ac.querySelector('.topLine');
+const bottomLine = ac.querySelector('.bottomLine');
+
+const xInput = document.getElementById('x');
+const yInput = document.getElementById('y');
+const fontInput = document.getElementById('font');
+const angleInput = document.getElementById('angle');
+const widthInput = document.getElementById('lineWidth');
+const gapInput = document.getElementById('lineGap');
+const topLineYInput = document.getElementById('topLineY');
+const bottomLineYInput = document.getElementById('bottomLineY');
+
+const dateField = document.getElementById('dateField');
+const dateInput = document.getElementById('dateInput');
+const dateXInput = document.getElementById('dateX');
+const dateYInput = document.getElementById('dateY');
+const dateFontInput = document.getElementById('dateFont');
+const dateSpacingInput = document.getElementById('dateSpacing');
+
+const payeeField = document.getElementById('payeeField');
+const payeeInput = document.getElementById('payeeInput');
+const payeeXInput = document.getElementById('payeeX');
+const payeeYInput = document.getElementById('payeeY');
+const payeeFontInput = document.getElementById('payeeFont');
+const payeeWidthInput = document.getElementById('payeeWidth');
+const amountField=document.getElementById('amountField');
+const amountInput=document.getElementById('amountInput');
+const amountXInput=document.getElementById('amountX');
+const amountYInput=document.getElementById('amountY');
+const amountFontInput=document.getElementById('amountFont');
+const amountWidthInput=document.getElementById('amountWidth');
+
+const wordsPreview=document.getElementById('wordsPreview');
+const wordsFontInput=document.getElementById('wordsFont');
+const words1=document.getElementById('wordsLine1');
+const words2=document.getElementById('wordsLine2');
+const words1XInput=document.getElementById('words1X');
+const words1YInput=document.getElementById('words1Y');
+const words1WidthInput=document.getElementById('words1Width');
+const words1HeightInput=document.getElementById('words1Height');
+const words2XInput=document.getElementById('words2X');
+const words2YInput=document.getElementById('words2Y');
+const words2WidthInput=document.getElementById('words2Width');
+const words2HeightInput=document.getElementById('words2Height');
+
+const state = {
+  x: 10,
+  y: 10,
+  font: 12,
+  angle: -40,
+  lineWidth: 25,
+  gap: 0,
+  topLineY: -2.3,
+  bottomLineY: 2.3,
+  date: "28082026",
+  dateX: 150,
+  dateY: 8,
+  dateFont: 12,
+  dateSpacing: 0.8,
+  payee: "Laxmi Dairy",
+  payeeX: 30,
+  payeeY: 27,
+  payeeFont: 12,
+  payeeWidth: 70,
+  amount: 2500,
+  amountX: 155,
+  amountY: 28,
+  amountFont: 12,
+  amountWidth: 35,
+  wordsFont: 11,
+  words1X: 35,
+  words1Y: 38,
+  words1Width: 120,
+  words1Height: 6,
+  words2X: 35,
+  words2Y: 44,
+  words2Width: 120,
+  words2Height: 6
+};
+
+function mm(n){ return n + 'mm'; }
+
+function render(){
+  xInput.value = state.x;
+  yInput.value = state.y;
+  fontInput.value = state.font;
+  angleInput.value = state.angle;
+  widthInput.value = state.lineWidth;
+  gapInput.value = state.gap;
+
+  ac.style.left = mm(state.x);
+  ac.style.top = mm(state.y);
+  ac.style.width = mm(state.lineWidth);
+
+  text.style.fontSize = state.font + 'pt';
+
+  /*
+    The line gap is independently adjustable. Use 0 mm to make the lines
+    touch the text area, or a small negative value if you want the two lines
+    to come even closer/overlap.
+  */
+  const textHeight = text.getBoundingClientRect().height /
+                     (cheque.getBoundingClientRect().height / 100);
+
+  const g = state.gap;
+
+  // Keep the complete group height based on the actual rendered text.
+  // The two lines are independently movable.
+  // Their Y values are relative to the A/C PAYEE text center.
+  // This lets the lower line be brought close to the text instead of
+  // being forced to mirror the upper line.
+  const defaultTop = -(textHeight/2 + Math.max(0,g));
+  const defaultBottom = (textHeight/2 + Math.max(0,g));
+
+  const topY = Number.isFinite(state.topLineY) ? state.topLineY : defaultTop;
+  const bottomY = Number.isFinite(state.bottomLineY) ? state.bottomLineY : defaultBottom;
+
+  // Use a generous internal height so either line can be moved freely.
+  const minY = Math.min(topY, bottomY, -textHeight/2) - 3;
+  const maxY = Math.max(topY, bottomY, textHeight/2) + 3;
+  const totalHeight = Math.max(4, maxY-minY);
+  ac.style.height = mm(totalHeight);
+
+  // Center the text within the internal coordinate system.
+  text.style.top = mm(-minY);
+  text.style.transform = 'translate(-50%,-50%)';
+
+  topLine.style.top = mm(topY-minY);
+  bottomLine.style.top = mm(bottomY-minY);
+
+  topLineYInput.value = state.topLineY.toFixed(2);
+  bottomLineYInput.value = state.bottomLineY.toFixed(2);
+
+  // DATE: render DDMMYYYY directly inside the 200 x 100 mm cheque area.
+  const cleanDate = String(state.date || '').replace(/\D/g,'').slice(0,8);
+  dateInput.value = cleanDate;
+
+  dateField.style.left = mm(state.dateX);
+  dateField.style.top = mm(state.dateY);
+  dateField.style.fontSize = state.dateFont + 'pt';
+  dateField.style.display = 'block';
+
+  dateField.innerHTML = '';
+  for(let i=0; i<cleanDate.length; i++){
+    const d = document.createElement('span');
+    d.className = 'digit';
+    d.textContent = cleanDate[i];
+    d.style.marginRight = (i === cleanDate.length-1) ? '0' : mm(state.dateSpacing);
+    dateField.appendChild(d);
+  }
+
+  dateXInput.value = state.dateX;
+  dateYInput.value = state.dateY;
+  dateFontInput.value = state.dateFont;
+  dateSpacingInput.value = state.dateSpacing;
+
+  // PAYEE: free text with adjustable invisible calibration width.
+  payeeInput.value = state.payee;
+  payeeXInput.value = state.payeeX;
+  payeeYInput.value = state.payeeY;
+  payeeFontInput.value = state.payeeFont;
+  payeeWidthInput.value = state.payeeWidth;
+
+  payeeField.textContent = state.payee;
+  payeeField.style.left = mm(state.payeeX);
+  payeeField.style.top = mm(state.payeeY);
+  payeeField.style.width = mm(state.payeeWidth);
+  payeeField.style.fontSize = state.payeeFont + 'pt';
+  payeeField.style.transform = 'none';
+
+  // Numeric Rs field
+  amountInput.value=state.amount;
+  amountXInput.value=state.amountX;
+  amountYInput.value=state.amountY;
+  amountFontInput.value=state.amountFont;
+  amountWidthInput.value=state.amountWidth;
+  amountField.textContent = formatNumericAmount(state.amount);
+
+  function formatNumericAmount(value){
+    const n = Number(value);
+    if(!Number.isFinite(n)) return '';
+    return n.toLocaleString('en-IN',{
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    });
+  }
+  amountField.style.left=mm(state.amountX);
+  amountField.style.top=mm(state.amountY);
+  amountField.style.width=mm(state.amountWidth);
+  amountField.style.fontSize=state.amountFont+'pt';
+  amountField.style.transform='none';
+
+  // RUPEES IN WORDS: two independently draggable free-text lines.
+  const words = amountToIndianWords(state.amount);
+  wordsPreview.value = words;
+  wordsFontInput.value = state.wordsFont;
+
+  words1XInput.value=state.words1X; words1YInput.value=state.words1Y; words1WidthInput.value=state.words1Width;
+  words2XInput.value=state.words2X; words2YInput.value=state.words2Y; words2WidthInput.value=state.words2Width;
+
+  [words1,words2].forEach((el)=>{
+    el.style.fontSize=state.wordsFont+'pt';
+    el.style.lineHeight='1.15';
+    el.style.whiteSpace='nowrap';
+  });
+
+  // IMPORTANT: Line 1 never wraps onto a second visual row.
+  // Once another word would exceed Line 1's calibrated width, that word
+  // and everything after it moves to Line 2.
+  const splitWords = splitRupeesWordsIntoTwoLines(
+    words,
+    words1,
+    state.words1Width
+  );
+  words1.textContent = splitWords.line1;
+  words2.textContent = splitWords.line2;
+
+  words1.style.left=mm(state.words1X);
+  words1.style.top=mm(state.words1Y);
+  words1.style.width=mm(state.words1Width);
+  words1.style.height=mm(state.words1Height);
+
+  words2.style.left=mm(state.words2X);
+  words2.style.top=mm(state.words2Y);
+  words2.style.width=mm(state.words2Width);
+
+  ac.style.transform = 'rotate(' + state.angle + 'deg)';
+}
+
+function bindNumber(input, key){
+  input.addEventListener('input', ()=>{
+    const value = parseFloat(input.value);
+    if(Number.isFinite(value)){
+      state[key] = value;
+      render();
+    }
+  });
+}
+
+bindNumber(xInput,'x');
+bindNumber(yInput,'y');
+bindNumber(fontInput,'font');
+bindNumber(angleInput,'angle');
+bindNumber(widthInput,'lineWidth');
+bindNumber(gapInput,'gap');
+bindNumber(topLineYInput,'topLineY');
+bindNumber(bottomLineYInput,'bottomLineY');
+
+dateInput.addEventListener('input', ()=>{
+  state.date = dateInput.value.replace(/\D/g,'').slice(0,8);
+  render();
+});
+bindNumber(dateXInput,'dateX');
+bindNumber(dateYInput,'dateY');
+bindNumber(dateFontInput,'dateFont');
+
+function numberToWordsIndian(n){
+  n=Math.floor(Math.abs(Number(n)));
+  if(n===0) return 'Zero';
+  const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function under100(x){ return x<20?ones[x]:tens[Math.floor(x/10)]+(x%10?' '+ones[x%10]:''); }
+  function under1000(x){ return x<100?under100(x):ones[Math.floor(x/100)]+' Hundred'+(x%100?' '+under100(x%100):''); }
+  const parts=[];
+  const crore=Math.floor(n/10000000); n%=10000000;
+  const lakh=Math.floor(n/100000); n%=100000;
+  const thousand=Math.floor(n/1000); n%=1000;
+  if(crore) parts.push(under1000(crore)+' Crore');
+  if(lakh) parts.push(under100(lakh)+' Lakh');
+  if(thousand) parts.push(under100(thousand)+' Thousand');
+  if(n) parts.push(under1000(n));
+  return parts.join(' ');
+}
+function splitRupeesWordsIntoTwoLines(text, line1Element, widthMm){
+  const parts = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return {line1:'', line2:''};
+
+  // Use the same font settings as the actual field.
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const computed = getComputedStyle(line1Element);
+  ctx.font = computed.font;
+
+  // Convert the calibrated mm width to CSS pixels at the current cheque scale.
+  const chequeRect = cheque.getBoundingClientRect();
+  const pxPerMm = chequeRect.width / 200;
+  const maxPx = Math.max(1, Number(widthMm) * pxPerMm);
+
+  let line1Parts = [];
+  let line1Width = 0;
+
+  for(const word of parts){
+    const candidate = line1Parts.length ? line1Parts.join(' ') + ' ' + word : word;
+    const candidateWidth = ctx.measureText(candidate).width;
+
+    if(line1Parts.length && candidateWidth > maxPx){
+      break;
+    }
+
+    // If even the first word is wider than the box, keep it on line 1 rather
+    // than splitting the word itself; subsequent words will move to line 2.
+    if(!line1Parts.length && candidateWidth > maxPx){
+      line1Parts.push(word);
+      break;
+    }
+
+    line1Parts.push(word);
+    line1Width = candidateWidth;
+  }
+
+  const line2Parts = parts.slice(line1Parts.length);
+  return {
+    line1: line1Parts.join(' '),
+    line2: line2Parts.join(' ')
+  };
+}
+
+function amountToIndianWords(value){
+  const n=Number(value);
+  if(!Number.isFinite(n)) return '';
+  const whole=Math.floor(Math.abs(n));
+  const paise=Math.round((Math.abs(n)-whole)*100);
+  let out=numberToWordsIndian(whole)+' Rupees';
+  if(paise) out+=' and '+numberToWordsIndian(paise)+' Paise';
+  return out+' Only';
+}
+
+bindNumber(dateSpacingInput,'dateSpacing');
+amountInput.addEventListener('input',()=>{const n=parseFloat(amountInput.value);state.amount=Number.isFinite(n)?n:0;render();});
+bindNumber(amountXInput,'amountX');
+bindNumber(amountYInput,'amountY');
+bindNumber(amountFontInput,'amountFont');
+bindNumber(amountWidthInput,'amountWidth');
+bindNumber(wordsFontInput,'wordsFont');
+bindNumber(words1XInput,'words1X'); bindNumber(words1YInput,'words1Y'); bindNumber(words1WidthInput,'words1Width'); bindNumber(words1HeightInput,'words1Height');
+bindNumber(words2XInput,'words2X'); bindNumber(words2YInput,'words2Y'); bindNumber(words2WidthInput,'words2Width'); bindNumber(words2HeightInput,'words2Height');
+
+payeeInput.addEventListener('input', ()=>{
+  state.payee = payeeInput.value;
+  render();
+});
+bindNumber(payeeXInput,'payeeX');
+bindNumber(payeeYInput,'payeeY');
+bindNumber(payeeFontInput,'payeeFont');
+bindNumber(payeeWidthInput,'payeeWidth');
+
+document.getElementById('reset').onclick=()=>{
+  state.x=10;
+  state.y=10;
+  state.font=12;
+  state.angle=-40;
+  state.lineWidth=25;
+  state.gap=0;
+  state.topLineY=-2.3;
+  state.bottomLineY=2.3;
+  state.date="28082026";
+  state.dateX=150;
+  state.dateY=8;
+  state.dateFont=12;
+  state.dateSpacing=0.8;
+  state.payee="Laxmi Dairy";
+  state.payeeX=30;
+  state.payeeY=27;
+  state.payeeFont=12;
+  state.payeeWidth=70;
+  state.amount=2500; state.amountX=155; state.amountY=28; state.amountFont=12; state.amountWidth=35;
+  state.wordsFont=11;
+  state.words1X=35; state.words1Y=38; state.words1Width=120; state.words1Height=6;
+  state.words2X=35; state.words2Y=44; state.words2Width=120; state.words2Height=6;
+  render();
+};
+
+document.getElementById('print').onclick=()=>window.print();
+
+
+
+/* Date can be dragged independently for X/Y calibration. */
+let dateDragging=false;
+let dateStartX=0,dateStartY=0,dateStartStateX=0,dateStartStateY=0;
+
+dateField.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  dateDragging=true;
+  dateStartX=e.clientX;
+  dateStartY=e.clientY;
+  dateStartStateX=state.dateX;
+  dateStartStateY=state.dateY;
+  dateField.setPointerCapture?.(e.pointerId);
+  dateField.classList.add('selected');
+});
+
+dateField.addEventListener('pointermove', e=>{
+  if(!dateDragging) return;
+  const rect=cheque.getBoundingClientRect();
+  const pxPerMmX=rect.width/200;
+  const pxPerMmY=rect.height/100;
+  state.dateX=dateStartStateX+(e.clientX-dateStartX)/pxPerMmX;
+  state.dateY=dateStartStateY+(e.clientY-dateStartY)/pxPerMmY;
+  render();
+});
+
+function stopDateDrag(){
+  dateDragging=false;
+}
+dateField.addEventListener('pointerup',stopDateDrag);
+dateField.addEventListener('pointercancel',stopDateDrag);
+
+
+/* Payee can be dragged independently for X/Y calibration. */
+let payeeDragging=false;
+let payeeStartX=0,payeeStartY=0,payeeStartStateX=0,payeeStartStateY=0;
+
+payeeField.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  payeeDragging=true;
+  payeeStartX=e.clientX;
+  payeeStartY=e.clientY;
+  payeeStartStateX=state.payeeX;
+  payeeStartStateY=state.payeeY;
+  payeeField.classList.add('selected');
+  document.addEventListener('pointermove',movePayeeDrag);
+  document.addEventListener('pointerup',stopPayeeDrag);
+  document.addEventListener('pointercancel',stopPayeeDrag);
+});
+
+function movePayeeDrag(e){
+  if(!payeeDragging) return;
+  const rect=cheque.getBoundingClientRect();
+  const pxPerMmX=rect.width/200;
+  const pxPerMmY=rect.height/100;
+  state.payeeX=payeeStartStateX+(e.clientX-payeeStartX)/pxPerMmX;
+  state.payeeY=payeeStartStateY+(e.clientY-payeeStartY)/pxPerMmY;
+  render();
+}
+
+function stopPayeeDrag(){
+  payeeDragging=false;
+  document.removeEventListener('pointermove',movePayeeDrag);
+  document.removeEventListener('pointerup',stopPayeeDrag);
+  document.removeEventListener('pointercancel',stopPayeeDrag);
+}
+
+let amountDragging=false, amountSX=0,amountSY=0,amountOX=0,amountOY=0;
+amountField.addEventListener('pointerdown',e=>{
+ e.preventDefault();e.stopPropagation();amountDragging=true;
+ amountSX=e.clientX;amountSY=e.clientY;amountOX=state.amountX;amountOY=state.amountY;
+ amountField.classList.remove('selected');
+ document.addEventListener('pointermove',moveAmount);
+ document.addEventListener('pointerup',stopAmount);
+ document.addEventListener('pointercancel',stopAmount);
+});
+function moveAmount(e){
+ if(!amountDragging)return;
+ const r=cheque.getBoundingClientRect();
+ state.amountX=amountOX+(e.clientX-amountSX)/(r.width/200);
+ state.amountY=amountOY+(e.clientY-amountSY)/(r.height/100);
+ render();
+}
+function stopAmount(){
+ amountDragging=false;
+ document.removeEventListener('pointermove',moveAmount);
+ document.removeEventListener('pointerup',stopAmount);
+ document.removeEventListener('pointercancel',stopAmount);
+}
+
+
+function makeWordsDraggable(el, xKey, yKey){
+  let dragging=false,sx=0,sy=0,ox=0,oy=0;
+  el.addEventListener('pointerdown',e=>{
+    e.preventDefault(); e.stopPropagation();
+    dragging=true; sx=e.clientX; sy=e.clientY; ox=state[xKey]; oy=state[yKey];
+    el.classList.remove('selected');
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',stop);
+    document.addEventListener('pointercancel',stop);
+  });
+  function move(e){
+    if(!dragging)return;
+    const r=cheque.getBoundingClientRect();
+    state[xKey]=ox+(e.clientX-sx)/(r.width/200);
+    state[yKey]=oy+(e.clientY-sy)/(r.height/100);
+    render();
+  }
+  function stop(){
+    dragging=false;
+    el.classList.remove('selected');
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+    document.removeEventListener('pointercancel',stop);
+  }
+}
+makeWordsDraggable(words1,'words1X','words1Y');
+makeWordsDraggable(words2,'words2X','words2Y');
+
+/* A/C PAYEE lines: each line is a completely independent draggable object. */
+function makeIndependentLineDraggable(el, xKey, yKey){
+  let dragging=false, sx=0, sy=0, ox=0, oy=0;
+
+  el.style.pointerEvents='auto';
+  el.style.touchAction='none';
+  el.style.cursor='move';
+  el.style.zIndex='20';
+
+  el.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    dragging=true;
+    sx=e.clientX; sy=e.clientY;
+    ox=state[xKey]; oy=state[yKey];
+    el.classList.remove('selected');
+
+    document.addEventListener('pointermove',move,{passive:false});
+    document.addEventListener('pointerup',stop);
+    document.addEventListener('pointercancel',stop);
+  });
+
+  function move(e){
+    if(!dragging)return;
+    e.preventDefault();
+    const r=cheque.getBoundingClientRect();
+    state[xKey]=ox+(e.clientX-sx)/(r.width/200);
+    state[yKey]=oy+(e.clientY-sy)/(r.height/100);
+    render();
+  }
+
+  function stop(){
+    dragging=false;
+    el.classList.remove('selected');
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+    document.removeEventListener('pointercancel',stop);
+  }
+}
+
+makeIndependentLineDraggable(topLine,'topLineX','topLineY');
+makeIndependentLineDraggable(bottomLine,'bottomLineX','bottomLineY');
+
+/* Drag the entire A/C PAYEE unit. */
+let dragging=false;
+let startX=0,startY=0,startStateX=0,startStateY=0;
+
+function pointerDown(e){
+  if(e.target === topLine || e.target === bottomLine ||
+     dateField.contains(e.target) || payeeField.contains(e.target) || amountField.contains(e.target) || words1.contains(e.target) || words2.contains(e.target)) return;
+  if(e.target !== ac && !ac.contains(e.target)) return;
+  e.preventDefault();
+  dragging=true;
+  ac.classList.add('selected');
+  startX=e.clientX;
+  startY=e.clientY;
+  startStateX=state.x;
+  startStateY=state.y;
+  ac.setPointerCapture?.(e.pointerId);
+}
+
+function pointerMove(e){
+  if(!dragging) return;
+
+  const rect=cheque.getBoundingClientRect();
+  const pxPerMmX=rect.width/200;
+  const pxPerMmY=rect.height/100;
+
+  state.x=startStateX+(e.clientX-startX)/pxPerMmX;
+  state.y=startStateY+(e.clientY-startY)/pxPerMmY;
+
+  render();
+}
+
+function pointerUp(){
+  dragging=false;
+}
+
+ac.addEventListener('pointerdown',pointerDown);
+ac.addEventListener('pointermove',pointerMove);
+ac.addEventListener('pointerup',pointerUp);
+ac.addEventListener('pointercancel',pointerUp);
+
+document.addEventListener('click',(e)=>{
+  if(!ac.contains(e.target)) ac.classList.remove('selected');
+  if(!dateField.contains(e.target)) dateField.classList.remove('selected');
+  if(!payeeField.contains(e.target)) payeeField.classList.remove('selected');
+  if(!amountField.contains(e.target)) amountField.classList.remove('selected');
+  if(!words1.contains(e.target)) words1.classList.remove('selected');
+  if(!words2.contains(e.target)) words2.classList.remove('selected');
+});
+
+window.addEventListener('resize', render);
+
+render();
+</script>
+</body>
+</html>
+
+<style>
+@media (max-width:700px){
+  body{overflow-x:auto;overflow-y:auto;}
+  #controls{width:100%;max-height:52vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;border-bottom:1px solid #ccc;padding-bottom:12px;}
+  #workspace{width:max-content;min-width:100%;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;padding-top:20px;}
+}
+</style>
