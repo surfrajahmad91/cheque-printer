@@ -12,8 +12,8 @@ type Drag = { k: Key; dx: number; dy: number };
 
 const initial: Record<Key, C> = {
   acPayee: { x: 14, y: 12, font: 12, angle: -40 },
-  acPayeeTopLine: { x: 14, y: 9.7, width: 24 },
-  acPayeeBottomLine: { x: 14, y: 14.3, width: 24 },
+  acPayeeTopLine: { x: 14, y: 9.7, width: 24, angle: -40 },
+  acPayeeBottomLine: { x: 14, y: 14.3, width: 24, angle: -40 },
   date: { x: 154, y: 10, font: 12, spacing: 1.1 },
   payee: { x: 30, y: 28, font: 12, width: 90 },
   amount: { x: 154, y: 29, font: 12, width: 35 },
@@ -78,16 +78,14 @@ function normalizeConfig(raw: any): Record<Key, C> {
   (Object.keys(initial) as Key[]).forEach((k) => {
     if (source[k] && typeof source[k] === "object") out[k] = { ...initial[k], ...source[k] };
   });
-  // Convert templates saved by the earlier combined A/C PAYEE format without
-  // overwriting independently stored line calibrations in newer templates.
   if (source.acPayee && typeof source.acPayee === "object") {
     const old = source.acPayee;
     out.acPayee = { ...out.acPayee, x: old.x ?? out.acPayee.x, y: old.y ?? out.acPayee.y, font: old.font ?? out.acPayee.font, angle: old.angle ?? out.acPayee.angle };
     if (!source.acPayeeTopLine || typeof source.acPayeeTopLine !== "object") {
-      out.acPayeeTopLine = { ...out.acPayeeTopLine, x: old.x ?? out.acPayeeTopLine.x, y: (old.y ?? out.acPayee.y) + (old.topLineY ?? -2.3), width: old.width ?? out.acPayeeTopLine.width };
+      out.acPayeeTopLine = { ...out.acPayeeTopLine, x: old.x ?? out.acPayeeTopLine.x, y: (old.y ?? out.acPayee.y) + (old.topLineY ?? -2.3), width: old.width ?? out.acPayeeTopLine.width, angle: old.angle ?? out.acPayeeTopLine.angle };
     }
     if (!source.acPayeeBottomLine || typeof source.acPayeeBottomLine !== "object") {
-      out.acPayeeBottomLine = { ...out.acPayeeBottomLine, x: old.x ?? out.acPayeeBottomLine.x, y: (old.y ?? out.acPayee.y) + (old.bottomLineY ?? 2.3), width: old.width ?? out.acPayeeBottomLine.width };
+      out.acPayeeBottomLine = { ...out.acPayeeBottomLine, x: old.x ?? out.acPayeeBottomLine.x, y: (old.y ?? out.acPayee.y) + (old.bottomLineY ?? 2.3), width: old.width ?? out.acPayeeBottomLine.width, angle: old.angle ?? out.acPayeeBottomLine.angle };
     }
   }
   return out;
@@ -239,9 +237,9 @@ export function ChequeDesigner({ initialDraft }: Props) {
           <div className="calibration-grid"><label>X<input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label><label>Y<input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label></div>
           {c.font != null && <label>Font size <span className="label-hint">pt</span><input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label>}
           {c.width != null && <label>Width <span className="label-hint">mm</span><input type="number" step="0.1" value={c.width} onChange={(e) => field(sel, "width", +e.target.value)} /></label>}
-          {sel === "acPayee" && <label>Angle <span className="label-hint">degrees</span><input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label>}
+          {(c.angle != null || sel === "acPayee" || sel === "acPayeeTopLine" || sel === "acPayeeBottomLine") && <label>Angle <span className="label-hint">degrees</span><input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label>}
           {sel === "date" && <label>Digit spacing <span className="label-hint">mm</span><input type="number" step="0.1" value={c.spacing ?? 0} onChange={(e) => field(sel, "spacing", +e.target.value)} /></label>}
-          {(sel === "acPayeeTopLine" || sel === "acPayeeBottomLine") && <div className="helper">This line is calibrated independently from the A/C PAYEE text and the other line.</div>}
+          {(sel === "acPayeeTopLine" || sel === "acPayeeBottomLine") && <div className="helper">This printable line is calibrated independently from the A/C PAYEE text and the other line.</div>}
           {sel === "words1" && <div className="helper">Line 1 stays on one line. Remaining words flow to line 2.</div>}
           {sel === "words2" && <div className="helper">Line 2 may wrap naturally if its calibrated width is reached.</div>}
         </div>
