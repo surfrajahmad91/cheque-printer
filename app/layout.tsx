@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./theme.css";
+import "./premium.css";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
 
