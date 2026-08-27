@@ -14,8 +14,11 @@ export function ChequeActions({ chequeId, status, notes: initialNotes }: { chequ
   async function saveNotes() {
     setBusy(true); setMessage("");
     const supabase = createClient();
-    const { error } = await supabase.from("cheques").update({ notes, updated_at: new Date().toISOString() }).eq("id", chequeId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBusy(false); setMessage("Please sign in again."); return; }
+    const { error } = await supabase.from("cheques").update({ notes, updated_at: new Date().toISOString() }).eq("id", chequeId).eq("user_id", user.id);
     setBusy(false); setMessage(error ? error.message : "Notes saved ✓");
+    if (!error) router.refresh();
   }
 
   async function changeStatus(next: "cancelled" | "void") {
@@ -24,7 +27,9 @@ export function ChequeActions({ chequeId, status, notes: initialNotes }: { chequ
     if (!confirm(wording)) return;
     setBusy(true); setMessage("");
     const supabase = createClient();
-    const { error } = await supabase.from("cheques").update({ status: next, updated_at: new Date().toISOString() }).eq("id", chequeId).neq("status", "void");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBusy(false); setMessage("Please sign in again."); return; }
+    const { error } = await supabase.from("cheques").update({ status: next, updated_at: new Date().toISOString() }).eq("id", chequeId).eq("user_id", user.id).neq("status", "void");
     setBusy(false); setMessage(error ? error.message : `Cheque marked ${next} ✓`);
     if (!error) router.refresh();
   }
