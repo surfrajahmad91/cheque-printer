@@ -1,1 +1,5 @@
-import {DesignerShell} from "@/components/designer-shell";export default function Designer(){return <DesignerShell/>}
+import { ChequeDesigner } from "@/components/cheque-designer";
+
+export default function Designer() {
+  return <ChequeDesigner />;
+}
