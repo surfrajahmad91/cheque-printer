@@ -2,23 +2,46 @@
 import {createClient} from "@/lib/supabase/server";
 import {redirect} from "next/navigation";
 
-const siteUrl=()=>process.env.NEXT_PUBLIC_SITE_URL||"http://localhost:3000";
+const siteUrl=()=>process.env.NEXT_PUBLIC_SITE_URL||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL?`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`:null)||
+  (process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:"http://localhost:3000");
 
 export async function login(formData:FormData){
   const s=await createClient();
   const email=String(formData.get("email")||"").trim();
   const password=String(formData.get("password")||"");
+
+  if(!email||!password)redirect("/login?error=Enter%20your%20email%20and%20password");
+
   const {error}=await s.auth.signInWithPassword({email,password});
-  if(error)redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  if(error){
+    const message=error.message.toLowerCase().includes("email not confirmed")
+      ? "Please verify your email address before signing in."
+      : error.message;
+    redirect(`/login?error=${encodeURIComponent(message)}`);
+  }
 
   const {data:claimsData}=await s.auth.getClaims();
   const userId=claimsData?.claims?.sub as string|undefined;
-  if(!userId){await s.auth.signOut();redirect("/login?error=Unable%20to%20start%20your%20session");}
-  const {data:profile}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
+  if(!userId){
+    await s.auth.signOut();
+    redirect("/login?error=Unable%20to%20start%20your%20session");
+  }
+
+  const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
+  if(profileError){
+    await s.auth.signOut();
+    redirect("/login?error=We%20could%20not%20load%20your%20account%20status.%20Please%20try%20again.");
+  }
+
   if(profile?.account_status!=="approved"){
     await s.auth.signOut();
-    redirect(`/account-pending?status=${encodeURIComponent(profile?.account_status||"pending")}`);
+    if(profile?.account_status==="rejected"){
+      redirect("/account-pending?status=rejected");
+    }
+    redirect("/account-pending?stage=review");
   }
+
   redirect("/dashboard");
 }
 
