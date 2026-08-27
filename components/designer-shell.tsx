@@ -9,6 +9,7 @@ type DesignerState = {
   payee: string;
   amount: number;
   amountInWords: string;
+  calibration: Record<string, unknown>;
   [key: string]: unknown;
 };
 
@@ -31,192 +32,84 @@ export function DesignerShell() {
   const frame = useRef<HTMLIFrameElement>(null);
   const [status, setStatus] = useState("Loading v24 designer…");
   const [saving, setSaving] = useState(false);
+  const [printNotes, setPrintNotes] = useState("");
   const router = useRouter();
 
   const readDesignerState = useCallback((): DesignerState | null => {
     const doc = frame.current?.contentDocument;
     if (!doc) return null;
-
     const amount = readNumber(doc, "amountInput", 0);
-    const words = [readText(doc, "wordsLine1"), readText(doc, "wordsLine2")]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
+    const words = [readText(doc, "wordsLine1"), readText(doc, "wordsLine2")].filter(Boolean).join(" ").trim();
     return {
       date: readValue(doc, "dateInput"),
       payee: readValue(doc, "payeeInput"),
       amount,
       amountInWords: words,
       calibration: {
-        acPayee: {
-          x: readNumber(doc, "x", 10),
-          y: readNumber(doc, "y", 10),
-          font: readNumber(doc, "font", 12),
-          angle: readNumber(doc, "angle", -40),
-          lineWidth: readNumber(doc, "lineWidth", 25),
-          lineGap: readNumber(doc, "lineGap", 0),
-          topLineY: readNumber(doc, "topLineY", -2.3),
-          bottomLineY: readNumber(doc, "bottomLineY", 2.3),
-        },
-        date: {
-          x: readNumber(doc, "dateX", 0),
-          y: readNumber(doc, "dateY", 0),
-          font: readNumber(doc, "dateFont", 12),
-          spacing: readNumber(doc, "dateSpacing", 0.8),
-        },
-        payee: {
-          x: readNumber(doc, "payeeX", 0),
-          y: readNumber(doc, "payeeY", 0),
-          font: readNumber(doc, "payeeFont", 12),
-          width: readNumber(doc, "payeeWidth", 70),
-        },
-        amount: {
-          x: readNumber(doc, "amountX", 0),
-          y: readNumber(doc, "amountY", 0),
-          font: readNumber(doc, "amountFont", 12),
-          width: readNumber(doc, "amountWidth", 35),
-        },
-        words: {
-          font: readNumber(doc, "wordsFont", 11),
-          line1: {
-            x: readNumber(doc, "words1X", 0),
-            y: readNumber(doc, "words1Y", 0),
-            width: readNumber(doc, "words1Width", 120),
-            height: readNumber(doc, "words1Height", 6),
-          },
-          line2: {
-            x: readNumber(doc, "words2X", 0),
-            y: readNumber(doc, "words2Y", 0),
-            width: readNumber(doc, "words2Width", 120),
-            height: readNumber(doc, "words2Height", 6),
-          },
-        },
+        acPayee: { x: readNumber(doc, "x", 10), y: readNumber(doc, "y", 10), font: readNumber(doc, "font", 12), angle: readNumber(doc, "angle", -40), lineWidth: readNumber(doc, "lineWidth", 25), lineGap: readNumber(doc, "lineGap", 0), topLineY: readNumber(doc, "topLineY", -2.3), bottomLineY: readNumber(doc, "bottomLineY", 2.3) },
+        date: { x: readNumber(doc, "dateX", 0), y: readNumber(doc, "dateY", 0), font: readNumber(doc, "dateFont", 12), spacing: readNumber(doc, "dateSpacing", 0.8) },
+        payee: { x: readNumber(doc, "payeeX", 0), y: readNumber(doc, "payeeY", 0), font: readNumber(doc, "payeeFont", 12), width: readNumber(doc, "payeeWidth", 70) },
+        amount: { x: readNumber(doc, "amountX", 0), y: readNumber(doc, "amountY", 0), font: readNumber(doc, "amountFont", 12), width: readNumber(doc, "amountWidth", 35) },
+        words: { font: readNumber(doc, "wordsFont", 11), line1: { x: readNumber(doc, "words1X", 0), y: readNumber(doc, "words1Y", 0), width: readNumber(doc, "words1Width", 120), height: readNumber(doc, "words1Height", 6) }, line2: { x: readNumber(doc, "words2X", 0), y: readNumber(doc, "words2Y", 0), width: readNumber(doc, "words2Width", 120), height: readNumber(doc, "words2Height", 6) } },
       },
     };
   }, []);
 
-  const saveCheque = useCallback(
-    async (statusToSave: "draft" | "printed" = "draft") => {
-      const state = readDesignerState();
-      if (!state) {
-        setStatus("Designer is still loading…");
-        return false;
-      }
+  const saveDraft = useCallback(async () => {
+    const state = readDesignerState();
+    if (!state) { setStatus("Designer is still loading…"); return; }
+    setSaving(true); setStatus("Saving draft…");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+    const { error } = await supabase.from("cheques").insert({ user_id: user.id, cheque_date: state.date, payee: state.payee, amount: state.amount, amount_in_words: state.amountInWords, status: "draft", layout_snapshot: state, notes: "" });
+    setSaving(false); setStatus(error ? `Unable to save: ${error.message}` : "Draft saved ✓");
+  }, [readDesignerState, router]);
 
-      setSaving(true);
-      setStatus(statusToSave === "printed" ? "Saving printed cheque…" : "Saving draft…");
+  const printCheque = useCallback(async () => {
+    const state = readDesignerState();
+    if (!state) { setStatus("Designer is still loading…"); return; }
+    setSaving(true); setStatus("Preparing print…");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const { data: cheque, error: insertError } = await supabase.from("cheques").insert({ user_id: user.id, cheque_date: state.date, payee: state.payee, amount: state.amount, amount_in_words: state.amountInWords, status: "draft", layout_snapshot: state, notes: printNotes }).select("id").single();
+    if (insertError || !cheque) { setSaving(false); setStatus(`Unable to prepare print: ${insertError?.message || "unknown error"}`); return; }
 
-      if (!user) {
-        router.push("/login");
-        return false;
-      }
+    const { error } = await supabase.rpc("record_cheque_print", { p_cheque_id: cheque.id, p_notes: printNotes });
+    if (error) { setSaving(false); setStatus(`Print was not recorded: ${error.message}`); return; }
 
-      const now = new Date().toISOString();
-      const payload: Record<string, unknown> = {
-        user_id: user.id,
-        cheque_date: state.date,
-        payee: state.payee,
-        amount: state.amount,
-        amount_in_words: state.amountInWords,
-        status: statusToSave,
-        layout_snapshot: state,
-        notes: "",
-        updated_at: now,
-      };
-
-      if (statusToSave === "printed") {
-        payload.first_printed_at = now;
-        payload.last_printed_at = now;
-        payload.print_count = 1;
-      }
-
-      const { data: cheque, error } = await supabase
-        .from("cheques")
-        .insert(payload)
-        .select("id,print_count")
-        .single();
-
-      if (error || !cheque) {
-        setSaving(false);
-        setStatus(error?.message || "Unable to save cheque");
-        return false;
-      }
-
-      if (statusToSave === "printed") {
-        const { error: historyError } = await supabase.from("print_history").insert({
-          cheque_id: cheque.id,
-          user_id: user.id,
-          print_number: 1,
-          printed_at: now,
-          layout_snapshot: state,
-          notes: "",
-        });
-
-        if (historyError) {
-          setSaving(false);
-          setStatus(`Cheque saved, but print history failed: ${historyError.message}`);
-          return false;
-        }
-      }
-
-      setSaving(false);
-      setStatus(statusToSave === "printed" ? "Printed cheque saved ✓" : "Draft saved ✓");
-      return true;
-    },
-    [readDesignerState, router],
-  );
+    setSaving(false); setStatus("Saved ✓ — opening print dialog…");
+    frame.current?.contentWindow?.print();
+  }, [printNotes, readDesignerState, router]);
 
   useEffect(() => {
     const iframe = frame.current;
     if (!iframe) return;
-
     const onLoad = () => {
       setStatus("Ready");
-
-      // v24 keeps the physical calibration and print UI. We only wrap its
-      // print button so the application can persist a snapshot before the
-      // browser print dialog opens. No calibration values are changed here.
       try {
         const doc = iframe.contentDocument;
         const printButton = doc?.getElementById("print") as HTMLButtonElement | null;
         if (!printButton || printButton.dataset.appWrapped === "1") return;
-
         printButton.dataset.appWrapped = "1";
-        printButton.onclick = async () => {
-          const saved = await saveCheque("printed");
-          if (saved) {
-            iframe.contentWindow?.print();
-          }
-        };
-      } catch {
-        setStatus("Ready — browser blocked designer integration");
-      }
+        printButton.onclick = () => void printCheque();
+      } catch { setStatus("Ready — designer loaded"); }
     };
-
     iframe.addEventListener("load", onLoad);
     return () => iframe.removeEventListener("load", onLoad);
-  }, [saveCheque]);
+  }, [printCheque]);
 
   return (
     <div className="designer-wrap">
       <div className="designer-actions">
-        <button className="btn secondary" disabled={saving} onClick={() => void saveCheque("draft")}>
-          {saving ? "Saving…" : "Save Draft"}
-        </button>
+        <button className="btn secondary" disabled={saving} onClick={() => void saveDraft()}>{saving ? "Saving…" : "Save Draft"}</button>
+        <input className="notes-input" value={printNotes} onChange={(e) => setPrintNotes(e.target.value)} placeholder="Print note (optional)" aria-label="Print note" />
+        <button className="btn" disabled={saving} onClick={() => void printCheque()}>{saving ? "Preparing…" : "Print Cheque"}</button>
         <span className="badge designer-status">{status}</span>
       </div>
-      <iframe
-        ref={frame}
-        className="designer-frame"
-        src="/cheque-designer-v24.html"
-        title="Cheque designer v24"
-      />
+      <iframe ref={frame} className="designer-frame" src="/cheque-designer-v24.html" title="Cheque designer v24" />
     </div>
   );
 }
