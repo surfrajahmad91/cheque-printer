@@ -1,0 +1,102 @@
+/* Physical cheque print output: exactly one 200 × 100 mm page. */
+@page {
+  size: 200mm 100mm;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 200mm !important;
+    min-width: 200mm !important;
+    max-width: 200mm !important;
+    height: 100mm !important;
+    min-height: 100mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .cd-page,
+  .cd-page .cd-shell,
+  .cd-page .cd-stage,
+  .cd-page .cd-preview-wrap,
+  .cd-page .cheque-canvas,
+  .cd-page .cheque-canvas * {
+    visibility: visible !important;
+  }
+
+  .cd-page {
+    position: static !important;
+    width: 200mm !important;
+    height: 100mm !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+
+  .cd-page .cd-shell,
+  .cd-page .cd-stage,
+  .cd-page .cd-preview-wrap {
+    width: 200mm !important;
+    height: 100mm !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .cd-page .cheque-canvas {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 200mm !important;
+    min-width: 200mm !important;
+    max-width: 200mm !important;
+    height: 100mm !important;
+    min-height: 100mm !important;
+    max-height: 100mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    overflow: hidden !important;
+    background-color: #fff !important;
+    background-image: none !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .cd-page .cd-header,
+  .cd-page .cd-panel,
+  .cd-page .cd-stage-head,
+  .cd-page .cd-preview-note,
+  .cd-page .cd-size,
+  .cd-page .cd-preview-pill {
+    display: none !important;
+  }
+
+  .cd-page .cheque-canvas .cal-item:hover,
+  .cd-page .cheque-canvas .cal-item.selected,
+  .cd-page .cheque-canvas .cal-item.selected::after {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
