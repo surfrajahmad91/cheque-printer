@@ -23,26 +23,27 @@ export async function login(formData:FormData){
   }
 
   const {data:userData,error:userError}=await s.auth.getUser();
-  if(userError||!userData.user){
+  const userId=userData.user?.id;
+  if(userError||!userId){
     await s.auth.signOut();
     loginError("Unable to start your session. Please try again.");
   }
 
-  const user=userData.user;
-  const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",user.id).maybeSingle();
+  const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
   if(profileError){
     await s.auth.signOut();
     loginError("We could not load your account status. Please try again.");
   }
 
-  if(!profile){
+  const accountStatus=profile?.account_status;
+  if(!accountStatus){
     await s.auth.signOut();
     loginError("Your account profile is still being prepared. Please try again in a moment.");
   }
 
-  if(profile.account_status!=="approved"){
+  if(accountStatus!=="approved"){
     await s.auth.signOut();
-    if(profile.account_status==="rejected") redirect("/account-pending?status=rejected");
+    if(accountStatus==="rejected") redirect("/account-pending?status=rejected");
     redirect("/account-pending?stage=review");
   }
 
