@@ -3,7 +3,6 @@ import {createClient} from "@/lib/supabase/server";
 import {ChequeDesigner} from "@/components/cheque-designer";
 
 const dragTargetStyles = `
-  /* Interactive calibration targets: keep the printed geometry unchanged while giving every draggable field a forgiving screen hit area. */
   .designer-page-layout .cheque-canvas .cal-item{
     touch-action:none!important;
     user-select:none!important;
@@ -27,7 +26,6 @@ const dragTargetStyles = `
     background:transparent;
     pointer-events:auto;
   }
-  /* Lines have little or no intrinsic height, so their invisible hit area must provide the actual drag target. */
   .designer-page-layout .cheque-canvas .cal-item.ac-line::after{
     left:-6px;
     right:-6px;
@@ -35,11 +33,8 @@ const dragTargetStyles = `
     bottom:-10px;
     min-height:24px;
   }
-  /* Amount-in-words rows can legitimately be empty while calibrating; keep both rows selectable anyway. */
   .designer-page-layout .cheque-canvas .cal-item.words1,
-  .designer-page-layout .cheque-canvas .cal-item.words2{
-    min-height:24px!important;
-  }
+  .designer-page-layout .cheque-canvas .cal-item.words2{min-height:24px!important}
   .designer-page-layout .cheque-canvas .cal-item.words1::after,
   .designer-page-layout .cheque-canvas .cal-item.words2::after{
     left:-6px;
@@ -49,21 +44,11 @@ const dragTargetStyles = `
     min-height:24px;
   }
   .designer-page-layout .cheque-canvas .cal-item.selected{z-index:60!important}
-  .designer-page-layout .cheque-canvas .cal-item.selected::after{
-    outline:1px solid rgba(21,169,133,.28);
-    outline-offset:1px;
-  }
-  @media print{
-    .designer-page-layout .cheque-canvas .cal-item::after{display:none!important}
-  }
+  .designer-page-layout .cheque-canvas .cal-item.selected::after{outline:1px solid rgba(21,169,133,.28);outline-offset:1px}
+  @media print{.designer-page-layout .cheque-canvas .cal-item::after{display:none!important}}
 `;
 
-/*
- * Print only the physical cheque canvas.  The previous version walked a
- * guessed component hierarchy and hid intermediate wrappers, which caused
- * the print renderer to hide the canvas as well.  The canvas is the stable
- * print target, so keep every ancestor alive and hide everything else.
- */
+/* Print the stable 200 × 100 mm cheque canvas without hiding its ancestors. */
 const printStyles = `
   @media print{
     @page{size:200mm 100mm;margin:0!important}
@@ -75,21 +60,11 @@ const printStyles = `
       overflow:hidden!important;
       background:#fff!important;
     }
-    body>*{display:none!important}
-    body>.designer-page-layout{
-      display:block!important;
-      position:relative!important;
-      width:200mm!important;
-      height:100mm!important;
-      min-width:200mm!important;
-      min-height:100mm!important;
-      margin:0!important;
-      padding:0!important;
-      overflow:visible!important;
-      background:#fff!important;
-    }
-    /* Do not display or clip the application chrome, but keep the React
-       hierarchy itself present so the canvas remains renderable. */
+    /* Keep the application DOM mounted, but make all screen UI invisible. */
+    body *{visibility:hidden!important}
+    .designer-page-layout,
+    .designer-page-layout .cheque-canvas,
+    .designer-page-layout .cheque-canvas *{visibility:visible!important}
     .designer-page-layout .cheque-canvas{
       display:block!important;
       position:fixed!important;
@@ -120,10 +95,6 @@ const printStyles = `
       box-shadow:none!important;
     }
     .designer-page-layout .cheque-canvas .cal-item.selected{outline:none!important;box-shadow:none!important}
-    /* Remove screen-only UI while preserving the canvas and its fields. */
-    .designer-page-layout *{visibility:hidden!important}
-    .designer-page-layout .cheque-canvas,
-    .designer-page-layout .cheque-canvas *{visibility:visible!important}
     .designer-page-layout .cheque-canvas .cal-item::after{display:none!important}
   }
 `;
