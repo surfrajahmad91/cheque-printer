@@ -1,0 +1,118 @@
+/* Final visual alignment pass: consistent centering, optical balance, and responsive guardrails. */
+
+/* Shared application frame */
+.main,
+.designer-header,
+.designer-layout,
+.designer-actions{
+  margin-inline:auto!important;
+}
+
+@media(min-width:901px){
+  .main{width:min(1440px,calc(100vw - 64px))!important;max-width:none!important}
+  .designer-header,.designer-layout,.designer-actions{width:min(1440px,calc(100vw - 64px))!important;max-width:none!important}
+  .toolbar{width:100%!important}
+  .settings-grid{align-items:start!important}
+  .card,.designer-panel,.designer-card{min-width:0}
+}
+
+@media(min-width:1601px){
+  .main{width:min(1480px,calc(100vw - 96px))!important}
+  .designer-header,.designer-layout,.designer-actions{width:min(1480px,calc(100vw - 96px))!important}
+}
+
+/* Landing page: one visual axis, with every major block optically centered. */
+.landing{overflow-x:clip!important}
+.landing .hero,
+.landing .trust-strip,
+.landing .feature-section,
+.landing .workflow-section,
+.landing .security-section,
+.landing .landing-cta,
+.landing .landing-footer{margin-inline:auto!important}
+
+.landing .hero-copy,
+.landing .hero-visual,
+.landing .section-intro,
+.landing .workflow-head,
+.landing .security-section>div:first-child{margin-inline:auto!important}
+
+/* Approval area: card contents follow the same center axis as its section. */
+.landing .security-section{display:grid!important;grid-template-columns:1fr!important;justify-items:center!important;text-align:center!important}
+.landing .security-section>div:first-child{display:flex!important;flex-direction:column!important;align-items:center!important;text-align:center!important}
+.landing .security-section>div:first-child .section-number{display:block!important;text-align:center!important}
+.landing .security-section>div:first-child h2{margin-inline:auto!important;text-align:center!important}
+.landing .security-section>div:first-child p{margin-inline:auto!important;text-align:center!important}
+.landing .approval-card{
+  width:min(500px,100%)!important;
+  margin:18px auto 0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  text-align:center!important;
+}
+.landing .approval-card .approval-icon{margin-inline:auto!important}
+.landing .approval-card strong,
+.landing .approval-card b,
+.landing .approval-card span{display:block!important;text-align:center!important}
+
+/* CTA: make the message and action one centered composition rather than a left/right split. */
+.landing .landing-cta{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:22px!important;
+  text-align:center!important;
+}
+.landing .landing-cta>div{
+  width:min(900px,100%)!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  text-align:center!important;
+  margin-inline:auto!important;
+}
+.landing .landing-cta>div>span,
+.landing .landing-cta>div>h2{margin-inline:auto!important;text-align:center!important}
+.landing .landing-cta .btn{margin-inline:auto!important}
+
+/* Workflow cards: identical internal geometry prevents optical drift. */
+.landing .workflow-grid{width:100%!important}
+.landing .workflow-grid>div{min-width:0!important;padding-inline:clamp(12px,2vw,30px)!important}
+.landing .workflow-grid>div>span{margin-inline:auto!important}
+.landing .workflow-grid>div h3{width:100%!important}
+.landing .workflow-grid>div p{width:min(360px,100%)!important}
+
+/* Feature cards share the same vertical rhythm. */
+.landing .feature-grid{width:100%!important}
+.landing .feature-card{min-width:0!important}
+.landing .feature-card>span{display:block!important}
+
+/* Hero preview stays centered and never creates horizontal page drift. */
+.landing .hero-visual{overflow:visible!important}
+.landing .window-card{margin-inline:auto!important}
+
+/* Tablet/mobile: preserve the same axis while allowing comfortable gutters. */
+@media(max-width:900px){
+  .main{width:100%!important}
+  .designer-header,.designer-layout,.designer-actions{width:100%!important}
+  .landing .hero,.landing .trust-strip,.landing .feature-section,.landing .workflow-section,.landing .security-section{width:100%!important}
+}
+
+@media(max-width:600px){
+  .landing .hero{padding-inline:16px!important}
+  .landing .approval-card{width:min(460px,100%)!important;margin-top:14px!important}
+  .landing .landing-cta{gap:18px!important}
+  .landing .landing-cta>div{width:100%!important}
+  .landing .workflow-grid>div{padding-inline:8px!important}
+}
+
+/* Avoid accidental horizontal overflow from long records/controls. */
+.main,.designer-wrap,.designer-stage{min-width:0}
+.table-wrap{max-width:100%;overflow-x:auto!important}
+
+/* Keep interactive controls visually level and consistently sized. */
+.main .btn,.designer-wrap .btn{vertical-align:middle}
+.action-row{align-items:center!important}
+.toolbar,.section-heading{align-items:center!important}
