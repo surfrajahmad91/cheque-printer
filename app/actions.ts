@@ -6,7 +6,7 @@ const siteUrl=()=>process.env.NEXT_PUBLIC_SITE_URL||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL?`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`:null)||
   (process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:"http://localhost:3000");
 
-const loginError=(message:string)=>redirect(`/login?error=${encodeURIComponent(message)}`);
+const loginError=(message:string):never=>redirect(`/login?error=${encodeURIComponent(message)}`);
 
 export async function login(formData:FormData){
   const s=await createClient();
@@ -28,8 +28,8 @@ export async function login(formData:FormData){
     loginError("Unable to start your session. Please try again.");
   }
 
-  const userId=userData.user.id;
-  const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
+  const user=userData.user;
+  const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",user.id).maybeSingle();
   if(profileError){
     await s.auth.signOut();
     loginError("We could not load your account status. Please try again.");
