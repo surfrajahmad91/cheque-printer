@@ -116,3 +116,28 @@
 .main .btn,.designer-wrap .btn{vertical-align:middle}
 .action-row{align-items:center!important}
 .toolbar,.section-heading{align-items:center!important}
+
+/* Mobile preview geometry: scale the complete landing-page mockup as one object.
+   This prevents the sidebar/checkmark, fields and cheque area from being stretched
+   independently when the viewport becomes narrow. */
+@media(max-width:600px){
+  .landing .hero-visual{width:100%!important;min-height:0!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important}
+  .landing .window-card{width:100%!important;max-width:620px!important;height:auto!important;aspect-ratio:620 / 480!important;margin-inline:auto!important;overflow:hidden!important;transform:none!important}
+  .landing .window-top{height:14.5%!important;min-height:0!important}
+  .landing .window-body{height:85.5%!important;min-height:0!important;display:flex!important;overflow:hidden!important}
+  .landing .window-body aside,.landing .window-body .mini-content{min-height:0!important}
+  .landing .window-body aside{height:100%!important;overflow:hidden!important}
+  .landing .mini-brand span{width:clamp(14px,4.8vw,22px)!important;height:clamp(14px,4.8vw,22px)!important;min-width:0!important;min-height:0!important;aspect-ratio:1!important;display:inline-grid!important;place-items:center!important;line-height:1!important;flex:0 0 auto!important}
+  .landing .mini-brand{display:flex!important;align-items:center!important;gap:clamp(4px,1.4vw,8px)!important;white-space:nowrap!important}
+  .landing .mini-nav{min-height:0!important;white-space:nowrap!important}
+  .landing .mini-content{min-width:0!important;overflow:hidden!important}
+  .landing .mini-cheque{min-width:0!important;overflow:hidden!important}
+  .landing .mini-payee,.landing .mini-amount{white-space:nowrap!important;max-width:100%!important}
+}
+
+/* Prevent any page-level element from introducing a subtle horizontal offset. */
+@media(max-width:900px){
+  html,body{max-width:100%;overflow-x:hidden!important}
+  .landing *{max-width:100%}
+  .landing .window-card,.landing .trust-strip,.landing .feature-section,.landing .workflow-section,.landing .security-section,.landing .landing-cta{box-sizing:border-box!important}
+}
