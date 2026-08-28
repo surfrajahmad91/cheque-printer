@@ -5,6 +5,7 @@ import "./polish.css";
 import "./final-overrides.css";
 import "./design-polish.css";
 import "./visual-system-fix.css";
+import "./print.css";
 import Link from "next/link";
 import type {Metadata} from "next";
 import {createClient} from "@/lib/supabase/server";
