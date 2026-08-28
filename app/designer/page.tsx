@@ -36,6 +36,10 @@ const dragTargetStyles = `
     min-height:24px;
   }
   /* Amount-in-words rows can legitimately be empty while calibrating; keep both rows selectable anyway. */
+  .designer-page-layout .cheque-canvas .cal-item.words1,
+  .designer-page-layout .cheque-canvas .cal-item.words2{
+    min-height:24px!important;
+  }
   .designer-page-layout .cheque-canvas .cal-item.words1::after,
   .designer-page-layout .cheque-canvas .cal-item.words2::after{
     left:-6px;
