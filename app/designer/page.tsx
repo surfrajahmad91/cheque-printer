@@ -48,25 +48,106 @@ const dragTargetStyles = `
   @media print{.designer-page-layout .cheque-canvas .cal-item::after{display:none!important}}
 `;
 
-/* Print the stable 200 × 100 mm cheque canvas without hiding its ancestors. */
+/*
+ * Print ONLY the 200 × 100 mm cheque surface.
+ *
+ * Important: visibility:hidden leaves layout boxes in the document, which can
+ * make mobile browsers paginate the hidden application shell onto a second
+ * sheet. During print we therefore remove the screen UI from layout entirely
+ * and explicitly keep every ancestor of the cheque canvas alive.
+ */
 const printStyles = `
   @media print{
     @page{size:200mm 100mm;margin:0!important}
     html,body{
       width:200mm!important;
       height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
       margin:0!important;
       padding:0!important;
       overflow:hidden!important;
       background:#fff!important;
     }
-    /* Keep the application DOM mounted, but make all screen UI invisible. */
-    body *{visibility:hidden!important}
-    .designer-page-layout,
-    .designer-page-layout .cheque-canvas,
-    .designer-page-layout .cheque-canvas *{visibility:visible!important}
-    .designer-page-layout .cheque-canvas{
+
+    /* Remove the normal screen layout from pagination. */
+    body *{display:none!important}
+
+    /* Keep only the DOM chain that contains the real cheque canvas. */
+    body .designer-page-layout,
+    body .designer-page-layout .cd-layout,
+    body .designer-page-layout .cd-stage,
+    body .designer-page-layout .cd-preview-wrap,
+    body .designer-page-layout .cheque-canvas{
       display:block!important;
+      visibility:visible!important;
+    }
+
+    body .designer-page-layout{
+      position:fixed!important;
+      left:0!important;
+      top:0!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:#fff!important;
+    }
+
+    body .designer-page-layout .cd-layout{
+      position:static!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      display:block!important;
+    }
+
+    body .designer-page-layout .cd-stage{
+      position:static!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      display:block!important;
+    }
+
+    body .designer-page-layout .cd-stage-head,
+    body .designer-page-layout .cd-stage > :not(.cd-preview-wrap),
+    body .designer-page-layout .cd-preview-wrap > :not(.cheque-canvas){display:none!important}
+
+    body .designer-page-layout .cd-preview-wrap{
+      position:static!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:#fff!important;
+    }
+
+    body .designer-page-layout .cheque-canvas{
       position:fixed!important;
       left:0!important;
       top:0!important;
@@ -84,31 +165,73 @@ const printStyles = `
       border:0!important;
       border-radius:0!important;
       box-shadow:none!important;
-      zoom:1!important;
       transform:none!important;
       transform-origin:top left!important;
+      zoom:1!important;
     }
-    .designer-page-layout .cheque-canvas .cal-item{
+
+    body .designer-page-layout .cheque-canvas .cal-item{
+      display:block!important;
       visibility:visible!important;
       opacity:1!important;
       outline:none!important;
       box-shadow:none!important;
     }
-    .designer-page-layout .cheque-canvas .cal-item.selected{outline:none!important;box-shadow:none!important}
-    .designer-page-layout .cheque-canvas .cal-item::after{display:none!important}
+    body .designer-page-layout .cheque-canvas .cal-item.selected{outline:none!important;box-shadow:none!important}
+    body .designer-page-layout .cheque-canvas .cal-item::after{display:none!important}
+  }
+`;
+
+const responsiveDesignerStyles = `
+  .designer-page-layout .cd-layout{grid-template-columns:1fr!important;gap:22px!important;align-items:stretch!important}
+  .designer-page-layout .cd-panel{order:1;width:100%;min-width:0}
+  .designer-page-layout .cd-stage{order:2;width:100%;min-width:0}
+  .designer-page-layout .cd-preview-wrap{
+    min-height:0!important;
+    max-height:none!important;
+    height:auto!important;
+    justify-content:center!important;
+    align-items:flex-start!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+  }
+  .designer-page-layout .cd-stage-head{max-width:100%}
+
+  /* The cheque is a true 2:1 surface. On narrow screens it scales down
+     proportionally instead of being clipped at the bottom. */
+  .designer-page-layout .cheque-canvas{
+    width:min(100%,200mm)!important;
+    max-width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    aspect-ratio:2 / 1!important;
+    flex:0 0 auto!important;
+  }
+
+  @media(max-width:900px){
+    .designer-page-layout .cd-layout{gap:16px!important}
+    .designer-page-layout .cd-preview-wrap{
+      justify-content:flex-start!important;
+      align-items:center!important;
+      width:100%!important;
+      max-height:65vh!important;
+      overflow-x:hidden!important;
+      overflow-y:auto!important;
+      padding-bottom:4px!important;
+    }
+    .designer-page-layout .cheque-canvas{
+      width:100%!important;
+      max-width:100%!important;
+      height:auto!important;
+      aspect-ratio:2 / 1!important;
+    }
   }
 `;
 
 export default async function Designer({searchParams}:{searchParams:Promise<{edit?:string}>}){
   const {edit}=await searchParams;
-  if(!edit)return <div className="designer-page-layout"><style>{`\
-    .designer-page-layout .cd-layout{grid-template-columns:1fr!important;gap:22px!important;align-items:stretch!important}\
-    .designer-page-layout .cd-panel{order:1;width:100%;min-width:0}\
-    .designer-page-layout .cd-stage{order:2;width:100%;min-width:0}\
-    .designer-page-layout .cd-preview-wrap{min-height:0!important;max-height:none!important;justify-content:center!important;overflow:auto}\
-    .designer-page-layout .cd-stage-head{max-width:100%}\
-    @media(max-width:900px){.designer-page-layout .cd-layout{gap:16px!important}.designer-page-layout .cd-preview-wrap{justify-content:flex-start!important}}\
-  `}{dragTargetStyles}{printStyles}</style><ChequeDesigner/></div>;
+  if(!edit)return <div className="designer-page-layout"><style>{responsiveDesignerStyles}{dragTargetStyles}{printStyles}</style><ChequeDesigner/></div>;
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
   const userId=claimsData?.claims?.sub;
@@ -119,12 +242,5 @@ export default async function Designer({searchParams}:{searchParams:Promise<{edi
   const snapshot=(cheque.layout_snapshot||{}) as any;
   const relation=cheque.payees as unknown as {name?:string}|{name?:string}[]|null;
   const payeeName=Array.isArray(relation)?relation[0]?.name:relation?.name;
-  return <div className="designer-page-layout"><style>{`\
-    .designer-page-layout .cd-layout{grid-template-columns:1fr!important;gap:22px!important;align-items:stretch!important}\
-    .designer-page-layout .cd-panel{order:1;width:100%;min-width:0}\
-    .designer-page-layout .cd-stage{order:2;width:100%;min-width:0}\
-    .designer-page-layout .cd-preview-wrap{min-height:0!important;max-height:none!important;justify-content:center!important;overflow:auto}\
-    .designer-page-layout .cd-stage-head{max-width:100%}\
-    @media(max-width:900px){.designer-page-layout .cd-layout{gap:16px!important}.designer-page-layout .cd-preview-wrap{justify-content:flex-start!important}}\
-  `}{dragTargetStyles}{printStyles}</style><ChequeDesigner initialDraft={{id:cheque.id,chequeNumber:cheque.cheque_number,payee:payeeName||"",date:snapshot.date||(cheque.cheque_date?String(cheque.cheque_date).slice(8,10)+String(cheque.cheque_date).slice(5,7)+String(cheque.cheque_date).slice(0,4):""),amount:String(cheque.amount??""),notes:cheque.notes||"",config:snapshot.calibration||undefined}}/></div>;
+  return <div className="designer-page-layout"><style>{responsiveDesignerStyles}{dragTargetStyles}{printStyles}</style><ChequeDesigner initialDraft={{id:cheque.id,chequeNumber:cheque.cheque_number,payee:payeeName||"",date:snapshot.date||(cheque.cheque_date?String(cheque.cheque_date).slice(8,10)+String(cheque.cheque_date).slice(5,7)+String(cheque.cheque_date).slice(0,4):""),amount:String(cheque.amount??""),notes:cheque.notes||"",config:snapshot.calibration||undefined}}/></div>;
 }
