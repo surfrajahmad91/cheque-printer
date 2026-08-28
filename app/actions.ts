@@ -6,39 +6,43 @@ const siteUrl=()=>process.env.NEXT_PUBLIC_SITE_URL||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL?`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`:null)||
   (process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:"http://localhost:3000");
 
+const loginError=(message:string)=>redirect(`/login?error=${encodeURIComponent(message)}`);
+
 export async function login(formData:FormData){
   const s=await createClient();
   const email=String(formData.get("email")||"").trim();
   const password=String(formData.get("password")||"");
 
-  if(!email||!password)redirect("/login?error=Enter%20your%20email%20and%20password");
+  if(!email||!password) loginError("Enter your email and password");
 
   const {error}=await s.auth.signInWithPassword({email,password});
   if(error){
-    const message=error.message.toLowerCase().includes("email not confirmed")
-      ? "Please verify your email address before signing in."
-      : error.message;
-    redirect(`/login?error=${encodeURIComponent(message)}`);
+    const lower=error.message.toLowerCase();
+    if(lower.includes("email not confirmed")) loginError("Please verify your email address before signing in.");
+    loginError(error.message);
   }
 
-  const {data:claimsData}=await s.auth.getClaims();
-  const userId=claimsData?.claims?.sub as string|undefined;
-  if(!userId){
+  const {data:userData,error:userError}=await s.auth.getUser();
+  if(userError||!userData.user){
     await s.auth.signOut();
-    redirect("/login?error=Unable%20to%20start%20your%20session");
+    loginError("Unable to start your session. Please try again.");
   }
 
+  const userId=userData.user.id;
   const {data:profile,error:profileError}=await s.from("profiles").select("account_status").eq("id",userId).maybeSingle();
   if(profileError){
     await s.auth.signOut();
-    redirect("/login?error=We%20could%20not%20load%20your%20account%20status.%20Please%20try%20again.");
+    loginError("We could not load your account status. Please try again.");
   }
 
-  if(profile?.account_status!=="approved"){
+  if(!profile){
     await s.auth.signOut();
-    if(profile?.account_status==="rejected"){
-      redirect("/account-pending?status=rejected");
-    }
+    loginError("Your account profile is still being prepared. Please try again in a moment.");
+  }
+
+  if(profile.account_status!=="approved"){
+    await s.auth.signOut();
+    if(profile.account_status==="rejected") redirect("/account-pending?status=rejected");
     redirect("/account-pending?stage=review");
   }
 
@@ -52,7 +56,9 @@ export async function signup(formData:FormData){
   const name=String(formData.get("name")||"").trim();
   const {data,error}=await s.auth.signUp({email,password,options:{data:{name},emailRedirectTo:`${siteUrl()}/auth/callback`}});
   if(error)redirect(`/signup?error=${encodeURIComponent(error.message)}`);
-  if(data.session)await s.auth.signOut();
+
+  // Never leave a newly created account with an active browser session.
+  if(data.session) await s.auth.signOut();
   redirect(`/account-pending?stage=${data.session?"review":"verify"}`);
 }
 
