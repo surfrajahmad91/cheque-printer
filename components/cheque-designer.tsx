@@ -198,7 +198,12 @@ export function ChequeDesigner({ initialDraft }: Props) {
       } else {
         const { error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null }); if (pr) throw pr;
       }
-      setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓"); if (print) window.print();
+      setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓");
+      if (print) {
+        const goToRegister = () => router.push("/register");
+        window.addEventListener("afterprint", goToRegister, { once: true });
+        window.print();
+      }
     } catch (e) { setStatus("Unable to save"); setError(e instanceof Error ? e.message : "Unable to save cheque"); }
     finally { setBusy(false); }
   };
