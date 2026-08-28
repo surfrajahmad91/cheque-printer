@@ -50,11 +50,9 @@ const dragTargetStyles = `
 
 /*
  * Print ONLY the 200 × 100 mm cheque surface.
- *
- * Important: visibility:hidden leaves layout boxes in the document, which can
- * make mobile browsers paginate the hidden application shell onto a second
- * sheet. During print we therefore remove the screen UI from layout entirely
- * and explicitly keep every ancestor of the cheque canvas alive.
+ * Keep the complete DOM chain that contains the canvas in layout. Hiding an
+ * ancestor with display:none also hides the canvas, which produced a blank
+ * Android print preview. Unneeded siblings are removed individually instead.
  */
 const printStyles = `
   @media print{
@@ -72,11 +70,10 @@ const printStyles = `
       background:#fff!important;
     }
 
-    /* Remove the normal screen layout from pagination. */
-    body *{display:none!important}
-
-    /* Keep only the DOM chain that contains the real cheque canvas. */
+    /* Preserve the full render chain; hide only the screen UI siblings. */
     body .designer-page-layout,
+    body .designer-page-layout .cd-page,
+    body .designer-page-layout .cd-shell,
     body .designer-page-layout .cd-layout,
     body .designer-page-layout .cd-stage,
     body .designer-page-layout .cd-preview-wrap,
@@ -100,6 +97,38 @@ const printStyles = `
       overflow:hidden!important;
       background:#fff!important;
     }
+
+    body .designer-page-layout .cd-page{
+      position:static!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:#fff!important;
+    }
+
+    body .designer-page-layout .cd-shell{
+      position:static!important;
+      width:200mm!important;
+      height:100mm!important;
+      min-width:200mm!important;
+      min-height:100mm!important;
+      max-width:200mm!important;
+      max-height:100mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+    }
+
+    body .designer-page-layout .cd-header,
+    body .designer-page-layout .cd-panel,
+    body .designer-page-layout .cd-stage-head,
+    body .designer-page-layout .cd-preview-note{display:none!important}
 
     body .designer-page-layout .cd-layout{
       position:static!important;
@@ -127,11 +156,11 @@ const printStyles = `
       padding:0!important;
       overflow:hidden!important;
       display:block!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      background:#fff!important;
     }
-
-    body .designer-page-layout .cd-stage-head,
-    body .designer-page-layout .cd-stage > :not(.cd-preview-wrap),
-    body .designer-page-layout .cd-preview-wrap > :not(.cheque-canvas){display:none!important}
 
     body .designer-page-layout .cd-preview-wrap{
       position:static!important;
@@ -144,13 +173,16 @@ const printStyles = `
       margin:0!important;
       padding:0!important;
       overflow:hidden!important;
+      display:block!important;
       background:#fff!important;
+      border:0!important;
+      border-radius:0!important;
     }
 
     body .designer-page-layout .cheque-canvas{
-      position:fixed!important;
-      left:0!important;
-      top:0!important;
+      position:static!important;
+      left:auto!important;
+      top:auto!important;
       width:200mm!important;
       height:100mm!important;
       min-width:200mm!important;
@@ -160,7 +192,7 @@ const printStyles = `
       margin:0!important;
       padding:0!important;
       overflow:hidden!important;
-      background:#fff!important;
+      background-color:#fff!important;
       background-image:none!important;
       border:0!important;
       border-radius:0!important;
@@ -196,9 +228,6 @@ const responsiveDesignerStyles = `
     overflow-y:auto!important;
   }
   .designer-page-layout .cd-stage-head{max-width:100%}
-
-  /* The cheque is a true 2:1 surface. On narrow screens it scales down
-     proportionally instead of being clipped at the bottom. */
   .designer-page-layout .cheque-canvas{
     width:min(100%,200mm)!important;
     max-width:100%!important;
@@ -208,7 +237,6 @@ const responsiveDesignerStyles = `
     aspect-ratio:2 / 1!important;
     flex:0 0 auto!important;
   }
-
   @media(max-width:900px){
     .designer-page-layout .cd-layout{gap:16px!important}
     .designer-page-layout .cd-preview-wrap{
