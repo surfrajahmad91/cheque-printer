@@ -141,3 +141,158 @@
   .landing *{max-width:100%}
   .landing .window-card,.landing .trust-strip,.landing .feature-section,.landing .workflow-section,.landing .security-section,.landing .landing-cta{box-sizing:border-box!important}
 }
+
+/* ---------- Final visual QA polish ---------- */
+
+/* Establish one predictable type scale across every landing section. */
+.landing .section-number{
+  font-size:clamp(10px,.7vw,12px)!important;
+  line-height:1.25!important;
+  letter-spacing:clamp(1.6px,.18vw,2.6px)!important;
+  text-align:center!important;
+}
+.landing .hero-copy h1{
+  font-size:clamp(40px,4.2vw,72px)!important;
+  line-height:1.02!important;
+  letter-spacing:clamp(-2.4px,-.18vw,-1px)!important;
+  text-wrap:balance!important;
+  margin-inline:auto!important;
+}
+.landing .hero-lead,
+.landing .section-intro p,
+.landing .security-section p{
+  font-size:clamp(14px,.95vw,17px)!important;
+  line-height:1.62!important;
+  text-wrap:pretty!important;
+}
+.landing .feature-card h3,
+.landing .workflow-grid h3{
+  font-size:clamp(15px,1.05vw,19px)!important;
+  line-height:1.2!important;
+  text-wrap:balance!important;
+}
+.landing .feature-card p,
+.landing .workflow-grid p,
+.landing .approval-card span{
+  font-size:clamp(12px,.78vw,14px)!important;
+  line-height:1.55!important;
+}
+.landing .feature-card,
+.landing .workflow-grid>div{
+  text-align:center!important;
+}
+
+/* Keep all landing content on a common readable line length. */
+.landing .hero-lead{max-width:720px!important}
+.landing .section-intro p{max-width:700px!important}
+.landing .workflow-head h2{max-width:900px!important}
+.landing .security-section>div:first-child p{max-width:720px!important}
+
+/* The approval card and CTA now share the same centered optical width. */
+.landing .approval-card{
+  width:min(520px,100%)!important;
+  padding:clamp(22px,2.2vw,32px)!important;
+  border-radius:18px!important;
+  box-sizing:border-box!important;
+}
+.landing .approval-card .approval-icon{
+  width:42px!important;
+  height:42px!important;
+  aspect-ratio:1!important;
+  flex:0 0 42px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+.landing .approval-card strong{margin-top:12px!important}
+.landing .approval-card b{margin-top:7px!important}
+.landing .approval-card span{margin-top:8px!important;max-width:390px!important}
+
+.landing .landing-cta{
+  min-height:220px!important;
+  padding:clamp(32px,4vw,60px)!important;
+}
+.landing .landing-cta>div>h2{
+  font-size:clamp(28px,2.9vw,48px)!important;
+  line-height:1.04!important;
+  letter-spacing:clamp(-1.6px,-.12vw,-.7px)!important;
+  text-wrap:balance!important;
+}
+.landing .landing-cta .btn{min-width:170px!important}
+
+/* Preview: on narrow screens use a deliberate compact crop instead of exposing
+   the bottom edge of the desktop mockup. The preview is decorative, so only the
+   highest-value workspace content is retained. */
+@media(max-width:600px){
+  .landing .hero-visual{padding-inline:0!important}
+  .landing .window-card{
+    width:100%!important;
+    max-width:650px!important;
+    aspect-ratio:1.78!important;
+    border-radius:18px!important;
+  }
+  .landing .window-top{height:15%!important}
+  .landing .window-body{height:85%!important}
+  .landing .window-body aside{width:25%!important;flex:0 0 25%!important}
+  .landing .mini-content{width:75%!important;flex:0 0 75%!important}
+  .landing .mini-title{gap:8px!important}
+  .landing .mini-title h3{font-size:clamp(13px,3.6vw,18px)!important;line-height:1.15!important}
+  .landing .mini-title small{font-size:clamp(5px,1.6vw,8px)!important;letter-spacing:.12em!important}
+  .landing .mini-title button{font-size:clamp(7px,1.9vw,10px)!important;padding:6px 8px!important}
+  .landing .mini-fields{gap:7px!important}
+  .landing .mini-cheque{min-height:0!important;height:34%!important}
+  .landing .mini-footer{min-height:0!important}
+  .landing .mini-brand{font-size:clamp(7px,2vw,11px)!important}
+  .landing .mini-nav{font-size:clamp(6px,1.7vw,9px)!important;padding-block:5px!important}
+  .landing .mini-payee{font-size:clamp(7px,2vw,11px)!important}
+  .landing .mini-amount{font-size:clamp(6px,1.8vw,10px)!important}
+  .landing .mini-footer{font-size:clamp(6px,1.7vw,9px)!important}
+
+  .landing .hero-copy h1{font-size:clamp(35px,10vw,46px)!important;letter-spacing:-2px!important}
+  .landing .hero-lead{font-size:15px!important;line-height:1.55!important;max-width:520px!important}
+  .landing .hero-proof{gap:8px 18px!important;flex-direction:row!important;justify-content:center!important}
+  .landing .hero-proof span{font-size:11px!important}
+  .landing .section-intro h2,
+  .landing .workflow-head h2,
+  .landing .security-section h2{font-size:clamp(30px,8.4vw,42px)!important;line-height:1.04!important;letter-spacing:-1.6px!important;text-wrap:balance!important}
+  .landing .section-intro p,
+  .landing .security-section p{font-size:14px!important;line-height:1.55!important}
+  .landing .feature-card{padding:16px!important;min-height:140px!important}
+  .landing .feature-card h3{font-size:15px!important}
+  .landing .feature-card p{font-size:12px!important;line-height:1.5!important}
+  .landing .workflow-grid>div{padding:24px 12px!important}
+  .landing .workflow-grid p{font-size:12px!important;max-width:300px!important}
+  .landing .approval-card{padding:22px 18px!important}
+  .landing .landing-cta>div>h2{font-size:clamp(28px,8.5vw,38px)!important}
+}
+
+/* Intermediate widths: never leave an oversized empty half of the viewport. */
+@media(min-width:601px) and (max-width:1100px){
+  .landing .hero-copy h1{font-size:clamp(42px,5.6vw,58px)!important}
+  .landing .hero-lead{max-width:680px!important}
+  .landing .feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .landing .feature-card{padding:22px!important}
+  .landing .workflow-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .landing .security-section{max-width:900px!important}
+}
+
+/* Application pages: consistent centered geometry, no asymmetric edge drift. */
+@media(min-width:901px){
+  .shell>.main,
+  .designer-wrap>.designer-header,
+  .designer-wrap>.designer-layout,
+  .designer-wrap>.designer-actions{
+    box-sizing:border-box!important;
+  }
+  .main>.toolbar{max-width:100%!important}
+  .main>.grid,
+  .main>.card,
+  .main>.table-wrap,
+  .main>.empty{margin-inline:auto!important}
+  .designer-header,.designer-layout,.designer-actions{margin-inline:auto!important}
+}
+
+/* Ensure square UI marks never stretch under flex/grid pressure. */
+.brand-mark,.shortcut-icon,.panel-icon,.status-dot,.approval-icon,.mini-brand span{aspect-ratio:1!important;flex-shrink:0!important}
+
+/* Final safety net against oversized text causing asymmetric cards. */
+.landing h1,.landing h2,.landing h3,.landing p,.landing span,.landing strong,.landing b{max-width:100%}
