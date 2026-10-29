@@ -5,6 +5,7 @@ import "./polish.css";
 import "./final-overrides.css";
 import "./design-polish.css";
 import "./visual-system-fix.css";
+import "./premium-skin.css";
 import "./print.css";
 import Link from "next/link";
 import type {Metadata} from "next";
@@ -45,7 +46,7 @@ export default async function RootLayout({children}:{children:React.ReactNode}){
   const user=claimsData?.claims;
   const email=typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
   const isAdmin=email===ADMIN_EMAIL;
-  return <html lang="en"><body><div className="shell">
+  return <html lang="en"><head><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin=""/><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,500&display=swap"/></head><body><div className="shell">
     {user ? <header className="topbar">
       <Link className="brand" href="/dashboard" aria-label="ChequeFlow home"><span className="brand-mark">✓</span><span>Cheque<span className="brand-accent">Flow</span></span></Link>
       <nav className="nav" aria-label="Primary navigation"><Navigation isAdmin={isAdmin}/></nav>
