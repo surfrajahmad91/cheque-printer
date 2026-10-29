@@ -6,6 +6,14 @@ const siteUrl=()=>process.env.NEXT_PUBLIC_SITE_URL||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL?`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`:null)||
   (process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:"http://localhost:3000");
 
+const authMessage=(raw:string,fallback:string)=>{
+  const m=raw.toLowerCase();
+  if(m.includes("invalid login")||m.includes("invalid credentials"))return "Incorrect email or password.";
+  if(m.includes("not confirmed"))return "Please verify your email address before signing in.";
+  if(m.includes("rate limit")||m.includes("too many")||m.includes("security purposes"))return "Too many attempts. Please wait a minute and try again.";
+  return fallback;
+};
+
 const loginError=(message:string):never=>redirect(`/login?error=${encodeURIComponent(message)}`);
 
 export async function login(formData:FormData){
@@ -17,9 +25,7 @@ export async function login(formData:FormData){
 
   const {error}=await s.auth.signInWithPassword({email,password});
   if(error){
-    const lower=error.message.toLowerCase();
-    if(lower.includes("email not confirmed")) loginError("Please verify your email address before signing in.");
-    loginError(error.message);
+    loginError(authMessage(error.message,"We couldn't sign you in. Please try again."));
   }
 
   const {data:userData,error:userError}=await s.auth.getUser();
@@ -56,7 +62,10 @@ export async function signup(formData:FormData){
   const password=String(formData.get("password")||"");
   const name=String(formData.get("name")||"").trim();
   const {data,error}=await s.auth.signUp({email,password,options:{data:{name},emailRedirectTo:`${siteUrl()}/auth/callback`}});
-  if(error)redirect(`/signup?error=${encodeURIComponent(error.message)}`);
+  if(error){
+    const weak=error.message.toLowerCase().includes("password");
+    redirect(`/signup?error=${encodeURIComponent(weak?error.message:authMessage(error.message,"We couldn't create your account. Please check your details and try again."))}`);
+  }
 
   // Never leave a newly created account with an active browser session.
   if(data.session) await s.auth.signOut();
@@ -68,7 +77,7 @@ export async function requestPasswordReset(formData:FormData){
   const email=String(formData.get("email")||"").trim();
   if(!email)redirect("/forgot-password?error=Enter%20your%20email%20address");
   const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo:`${siteUrl()}/auth/callback?type=recovery`});
-  if(error)redirect(`/forgot-password?error=${encodeURIComponent(error.message)}`);
+  if(error)redirect(`/forgot-password?error=${encodeURIComponent(authMessage(error.message,"We couldn't send the reset link right now. Please try again."))}`);
   redirect("/forgot-password?sent=1");
 }
 
@@ -76,10 +85,13 @@ export async function updatePassword(formData:FormData){
   const s=await createClient();
   const password=String(formData.get("password")||"");
   const confirm=String(formData.get("confirmPassword")||"");
-  if(password.length<6)redirect("/reset-password?error=Password%20must%20be%20at%20least%206%20characters");
+  if(password.length<8)redirect("/reset-password?error=Password%20must%20be%20at%20least%208%20characters");
   if(password!==confirm)redirect("/reset-password?error=Passwords%20do%20not%20match");
   const {error}=await s.auth.updateUser({password});
-  if(error)redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
+  if(error){
+    const weak=error.message.toLowerCase().includes("password");
+    redirect(`/reset-password?error=${encodeURIComponent(weak?error.message:"We couldn't update your password. Your reset link may have expired — please request a new one.")}`);
+  }
   await s.auth.signOut();
   redirect("/login?success=Password%20updated.%20Please%20sign%20in%20with%20your%20new%20password");
 }

@@ -40,6 +40,6 @@ export default function Home(){
     <section className="security-section"><div><span className="section-number">CONTROLLED ACCESS</span><h2>Your account is reviewed<br/><em>before workspace access.</em></h2><p>Sign up, verify your email and we review the account. Approved users then get access to the cheque workspace. This keeps the working database focused on genuine users from day one.</p></div><div className="approval-card"><div className="approval-icon">✓</div><strong>Typical review window</strong><b>Within 4 working hours</b><span>You'll receive the next step once your account is approved.</span></div></section>
 
     <section className="landing-cta"><div><span>READY WHEN YOU ARE</span><h2>Make cheque printing<br/>feel like a proper product.</h2></div><Link className="btn btn-lg" href="/signup">Create an account →</Link></section>
-    <footer className="landing-footer"><span>© {new Date().getFullYear()} ChequeFlow</span><span>Precise. Organised. Printer-ready.</span></footer>
+    <footer className="landing-footer"><span>© {new Date().getFullYear()} ChequeFlow</span><span><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · Precise. Organised. Printer-ready.</span></footer>
   </main>;
 }

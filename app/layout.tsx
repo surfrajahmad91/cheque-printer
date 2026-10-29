@@ -8,19 +8,23 @@ import "./visual-system-fix.css";
 import "./premium-skin.css";
 import "./print.css";
 import Link from "next/link";
-import type {Metadata} from "next";
+import type {Metadata,Viewport} from "next";
 import {createClient} from "@/lib/supabase/server";
 import {LogoutButton} from "@/components/logout-button";
 import {MobileNavigation} from "@/components/mobile-navigation";
+import {isAdminEmail} from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "ChequeFlow — Precise Cheque Printing",
   description: "A professional workspace for preparing, calibrating, managing and printing cheques.",
+  applicationName: "ChequeFlow",
+  icons: {icon: "/icon.svg"},
+  robots: {index: true, follow: true},
 };
 
-const ADMIN_EMAIL = "surfrajahmad@gmail.com";
+export const viewport: Viewport = {themeColor: "#0a1a16"};
 
 const navItems = [
   {href:"/dashboard",label:"Dashboard",icon:"⌂"},
@@ -44,8 +48,7 @@ export default async function RootLayout({children}:{children:React.ReactNode}){
   const supabase=await createClient();
   const {data:claimsData}=await supabase.auth.getClaims();
   const user=claimsData?.claims;
-  const email=typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
-  const isAdmin=email===ADMIN_EMAIL;
+  const isAdmin=isAdminEmail(user?.email);
   return <html lang="en"><head><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin=""/><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,500&display=swap"/></head><body><div className="shell">
     {user ? <header className="topbar">
       <Link className="brand" href="/dashboard" aria-label="ChequeFlow home"><span className="brand-mark">✓</span><span>Cheque<span className="brand-accent">Flow</span></span></Link>
