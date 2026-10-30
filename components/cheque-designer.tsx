@@ -111,6 +111,11 @@ export function ChequeDesigner({ initialDraft }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(initialDraft ? "Draft loaded ✓" : "Ready");
   const [error, setError] = useState("");
+  // Post-print confirmation (shown after the print dialog closes; never part of the printed page).
+  const [printedId, setPrintedId] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("");
 
   const words = useMemo(() => amountWords(amount), [amount]);
   const [w1, w2] = useMemo(() => wrapTwoLines(words, cfg.words1.width || 120, cfg.words1.font || 11), [words, cfg.words1.width, cfg.words1.font]);
@@ -175,6 +180,39 @@ export function ChequeDesigner({ initialDraft }: Props) {
     finally { setBusy(false); }
   };
 
+  // Opens the browser print dialog, then asks whether the cheque really printed.
+  // afterprint is not reliable on every mobile browser, so a short fallback timer also opens the question.
+  const runPrint = () => {
+    const ask = () => { setConfirmMsg(""); setConfirmOpen(true); };
+    window.addEventListener("afterprint", ask, { once: true });
+    window.print();
+    window.setTimeout(ask, 1500);
+  };
+  const printAgain = () => { setConfirmOpen(false); window.setTimeout(runPrint, 200); };
+  const confirmPrinted = () => { setConfirmOpen(false); router.push("/register"); };
+  const markNotPrinted = async () => {
+    if (!printedId) { setConfirmMsg("Could not find this cheque. Open it from the register."); return; }
+    setConfirmBusy(true); setConfirmMsg("");
+    try {
+      const s = createClient(); const { data: { user } } = await s.auth.getUser(); if (!user) { router.push("/login"); return; }
+      const h = await s.from("print_history").delete().eq("cheque_id", printedId).eq("user_id", user.id); if (h.error) throw h.error;
+      const u = await s.from("cheques").update({ status: "draft", print_count: 0, first_printed_at: null, last_printed_at: null, updated_at: new Date().toISOString() }).eq("id", printedId).eq("user_id", user.id); if (u.error) throw u.error;
+      setConfirmOpen(false); router.push(`/designer?edit=${printedId}`);
+    } catch (e) { setConfirmMsg(e instanceof Error ? e.message : "Could not move the cheque back to draft."); }
+    finally { setConfirmBusy(false); }
+  };
+  const cancelSpoiled = async () => {
+    if (!printedId) { setConfirmMsg("Could not find this cheque. Open it from the register."); return; }
+    if (!window.confirm("Cancel this cheque? Use this when the leaf was spoiled or printed wrongly. A cancelled cheque cannot be printed again.")) return;
+    setConfirmBusy(true); setConfirmMsg("");
+    try {
+      const s = createClient(); const { data: { user } } = await s.auth.getUser(); if (!user) { router.push("/login"); return; }
+      const u = await s.from("cheques").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", printedId).eq("user_id", user.id); if (u.error) throw u.error;
+      setConfirmOpen(false); router.push(`/cheques/${printedId}`);
+    } catch (e) { setConfirmMsg(e instanceof Error ? e.message : "Could not cancel the cheque."); }
+    finally { setConfirmBusy(false); }
+  };
+
   const save = async (print = false) => {
     setError(""); const normalizedChequeNumber = chequeNumber.trim();
     if (!normalizedChequeNumber || !/^\d+$/.test(normalizedChequeNumber) || !/[1-9]/.test(normalizedChequeNumber)) { setError("Enter the actual cheque number (positive whole number). Leading zeros are allowed."); return; }
@@ -196,14 +234,11 @@ export function ChequeDesigner({ initialDraft }: Props) {
           else { const r = await s.from("cheques").insert({ user_id: user.id, cheque_series_id: null, cheque_number: normalizedChequeNumber, payee_id: payeeRow.id, cheque_date: isoDate(date), amount: +amount, amount_in_words: words, status: "draft", layout_snapshot: snap, notes: notes.trim() }).select("id").single(); if (r.error) throw r.error; }
         }
       } else {
-        const { error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null }); if (pr) throw pr;
+        const { data: printedRow, error: pr } = await s.rpc("create_and_print_cheque", { p_cheque_number: normalizedChequeNumber, p_payee_id: payeeRow.id, p_cheque_date: isoDate(date), p_amount: +amount, p_amount_in_words: words, p_layout_snapshot: snap, p_notes: notes.trim(), p_draft_id: initialDraft?.id || null }); if (pr) throw pr;
+        setPrintedId(String((printedRow as { id?: string } | null)?.id || ""));
       }
       setStatus(print ? "Saved ✓ — printing…" : "Draft saved ✓");
-      if (print) {
-        const goToRegister = () => router.push("/register");
-        window.addEventListener("afterprint", goToRegister, { once: true });
-        window.print();
-      }
+      if (print) runPrint();
     } catch (e) { setStatus("Unable to save"); setError(e instanceof Error ? e.message : "Unable to save cheque"); }
     finally { setBusy(false); }
   };
@@ -314,5 +349,20 @@ export function ChequeDesigner({ initialDraft }: Props) {
         </section>
       </div>
     </div>
+    {confirmOpen && <div className="pf-confirm" role="dialog" aria-modal="true" aria-labelledby="pf-confirm-title">
+      <style>{`.pf-confirm{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:20px;background:rgba(10,26,22,.55);backdrop-filter:blur(3px)}.pf-confirm-card{width:min(440px,100%);background:#fff;border:1px solid #e2e8e5;border-radius:22px;padding:26px 22px 20px;box-shadow:0 24px 64px rgba(10,26,22,.3);text-align:center}.pf-confirm-card h2{margin:6px 0 6px;font-size:22px;color:#0a1a16}.pf-confirm-card p{margin:0 0 18px;color:#6b7873;font-size:14px;line-height:1.55}.pf-confirm-kicker{font-size:11px;font-weight:700;letter-spacing:.16em;color:#b8975a}.pf-confirm-actions{display:grid;gap:10px}.pf-confirm-actions button{min-height:46px;border-radius:12px;font-weight:650;font-size:14px;cursor:pointer;border:1px solid #d9e1dd;background:#fff;color:#0a1a16}.pf-confirm-actions button.pf-yes{background:linear-gradient(180deg,#12b58f,#0b8a6c);border-color:#0b8a6c;color:#fff}.pf-confirm-actions button.pf-warn{border-color:#f0d6d2;color:#a8362c}.pf-confirm-actions button:disabled{opacity:.6;cursor:wait}.pf-confirm-msg{margin-top:12px;color:#a8362c;font-size:13px}@media print{.pf-confirm{display:none!important}}`}</style>
+      <div className="pf-confirm-card">
+        <div className="pf-confirm-kicker">PRINT CHECK</div>
+        <h2 id="pf-confirm-title">Did the cheque print correctly?</h2>
+        <p>Your register only shows what really happened. Cheque {chequeNumber.trim()} for ₹{formatIndianAmount(amount)} to {payee.trim() || "payee"}.</p>
+        <div className="pf-confirm-actions">
+          <button type="button" className="pf-yes" autoFocus onClick={confirmPrinted} disabled={confirmBusy}>Yes, it printed correctly</button>
+          <button type="button" onClick={printAgain} disabled={confirmBusy}>Print again</button>
+          <button type="button" onClick={() => void markNotPrinted()} disabled={confirmBusy}>It didn’t print — move back to draft</button>
+          <button type="button" className="pf-warn" onClick={() => void cancelSpoiled()} disabled={confirmBusy}>Printed wrongly — cancel this cheque</button>
+        </div>
+        {confirmMsg && <div className="pf-confirm-msg" role="alert">{confirmMsg}</div>}
+      </div>
+    </div>}
   </div>;
 }
