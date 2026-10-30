@@ -115,6 +115,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
   const [printedId, setPrintedId] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [payeeOptions, setPayeeOptions] = useState<string[]>([]);
   const [confirmMsg, setConfirmMsg] = useState("");
 
   const words = useMemo(() => amountWords(amount), [amount]);
@@ -128,7 +129,15 @@ export function ChequeDesigner({ initialDraft }: Props) {
     if (e) { setError(e.message); return; }
     setTemplates((data || []).map((t: any) => ({ id: t.id, name: t.name, payee: t.layout?.payee || "", calibration: normalizeConfig(t.layout?.calibration) })));
   };
-  useEffect(() => { void loadTemplates(); }, []);
+  const loadPayees = async () => {
+    const s = createClient();
+    const { data: { user } } = await s.auth.getUser();
+    if (!user) return;
+    const { data } = await s.from("payees").select("name").eq("user_id", user.id).eq("is_active", true).order("name");
+    const seen = new Set<string>();
+    setPayeeOptions((data || []).map((r: { name: string }) => r.name).filter((n: string) => { const k = n.trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }));
+  };
+  useEffect(() => { void loadTemplates(); void loadPayees(); }, []);
   useEffect(() => {
     if (initialDraft || typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("template");
@@ -222,7 +231,8 @@ export function ChequeDesigner({ initialDraft }: Props) {
     setBusy(true); setStatus(print ? "Saving & preparing print…" : "Saving draft…");
     try {
       const s = createClient(); const { data: { user } } = await s.auth.getUser(); if (!user) { router.push("/login"); return; }
-      let { data: payeeRow, error: pe } = await s.from("payees").select("id").eq("user_id", user.id).eq("name", payee.trim()).maybeSingle(); if (pe) throw pe;
+      const likeName = payee.trim().replace(/[\\%_]/g, (ch) => "\\" + ch);
+      let { data: payeeRow, error: pe } = await s.from("payees").select("id").eq("user_id", user.id).ilike("name", likeName).order("is_active", { ascending: false }).limit(1).maybeSingle(); if (pe) throw pe;
       if (!payeeRow) { const r = await s.from("payees").insert({ user_id: user.id, name: payee.trim() }).select("id").single(); if (r.error) throw r.error; payeeRow = r.data; }
       const snap = { source: "native-cheque-designer", date, payee: payee.trim(), chequeNumber: normalizedChequeNumber, amount: +amount, amountInWords: words, calibration: cfg, templateId: selectedTemplate || null };
       if (!print) {
@@ -242,6 +252,15 @@ export function ChequeDesigner({ initialDraft }: Props) {
     } catch (e) { setStatus("Unable to save"); setError(e instanceof Error ? e.message : "Unable to save cheque"); }
     finally { setBusy(false); }
   };
+
+  const dateWarning = useMemo(() => {
+    if (!validDate(date)) return "";
+    const d = new Date(`${isoDate(date)}T00:00:00`); const now = new Date(); now.setHours(0, 0, 0, 0);
+    const days = Math.round((d.getTime() - now.getTime()) / 86400000);
+    if (days < -90) return "This date is more than 3 months in the past. Banks treat such a cheque as stale — check the date.";
+    if (days > 120) return "This date is far in the future. Check the year before you print.";
+    return "";
+  }, [date]);
 
   const c = cfg[sel];
   const itemStyle = (k: Key): React.CSSProperties => ({ left: `${cfg[k].x}mm`, top: `${cfg[k].y}mm`, fontSize: cfg[k].font ? `${cfg[k].font}pt` : undefined, width: cfg[k].width ? `${cfg[k].width}mm` : undefined, transform: cfg[k].angle != null ? `rotate(${cfg[k].angle}deg)` : undefined });
@@ -302,8 +321,9 @@ export function ChequeDesigner({ initialDraft }: Props) {
             <div className="cd-card-head"><strong>Cheque details</strong><span>Stored securely</span></div>
             <label>Actual cheque number<input inputMode="numeric" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value.replace(/\D/g, "").slice(0, 18))} placeholder="e.g. 002536" disabled={busy} /></label>
             <div className="cd-helper">The physical cheque number identifies the cheque in your register. It is never rendered or printed by this designer.</div>
-            <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} disabled={busy} placeholder="Payee name" /></label>
+            <label>Payee<input value={payee} onChange={(e) => setPayee(e.target.value)} disabled={busy} placeholder="Payee name" list="pf-payee-list" autoComplete="off" /><datalist id="pf-payee-list">{payeeOptions.map((n) => <option key={n} value={n} />)}</datalist></label>
             <div className="cd-cal-grid"><label>Date <span className="label-hint">DDMMYYYY</span><input inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value.replace(/\D/g, "").slice(0, 8))} disabled={busy} placeholder="28082026" /></label><label>Amount<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} disabled={busy} placeholder="0.00" /></label></div>
+            {dateWarning && <div className="cd-helper cd-warn" role="status">{dateWarning}</div>}
             <label>Notes<input className="notes-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" disabled={busy} /></label>
             <label className="upload">Calibration background<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; setBg(f ? URL.createObjectURL(f) : null); }} disabled={busy} /><span>Upload the original cheque image for on-screen alignment.</span></label>
           </div>

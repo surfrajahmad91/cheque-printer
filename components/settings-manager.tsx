@@ -126,9 +126,9 @@ export function SettingsManager({ initialSeries, initialPrinters, initialError =
       </div>
 
       {tab === "series" && <section className="card settings-section">
-        <div className="section-heading"><div><h2>Cheque series</h2><p className="muted">Keep separate cheque books and accounts organised.</p></div><button className="btn" disabled={busy} onClick={() => void addSeries()}>+ Add series</button></div>
+        <div className="section-heading"><div><h2>Cheque series</h2><p className="muted">Optional reference list of your cheque books. Cheque numbers are typed on each cheque, so a series never changes what is printed.</p></div><button className="btn" disabled={busy} onClick={() => void addSeries()}>+ Add series</button></div>
         <div className="record-list">
-          {series.map((x) => <div className="record-row" key={x.id}><div><strong>{x.name}</strong><span className="muted">{x.bank_name || "Bank not set"} · Account {x.account_name || "not set"} · Next {x.next_number}</span></div><button className="btn ghost" onClick={() => void toggleSeries(x)}>{x.is_active ? "Deactivate" : "Activate"}</button></div>)}
+          {series.map((x) => <div className="record-row" key={x.id}><div><strong>{x.name}</strong><span className="muted">{x.bank_name || "Bank not set"} · Account {x.account_name || "not set"}</span></div><button className="btn ghost" onClick={() => void toggleSeries(x)}>{x.is_active ? "Deactivate" : "Activate"}</button></div>)}
           {!series.length && <div className="empty"><h3>No cheque series</h3><p className="muted">Add one when you manage multiple cheque books.</p></div>}
         </div>
       </section>}

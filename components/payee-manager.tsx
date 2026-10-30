@@ -12,6 +12,8 @@ type Payee = {
   is_active: boolean;
 };
 
+const norm = (v: string) => v.trim().replace(/\s+/g, " ").toLowerCase();
+
 type Props = {
   initialRows: Payee[];
   initialError?: string;
@@ -39,6 +41,12 @@ export function PayeeManager({ initialRows, initialError = "" }: Props) {
   const save = async () => {
     if (!name.trim()) {
       setMsg("Payee name is required.");
+      return;
+    }
+
+    const clash = rows.find((r) => r.id !== editing && norm(r.name) === norm(name));
+    if (clash) {
+      setMsg(`“${clash.name}” already exists. Use it instead of adding the same name again.`);
       return;
     }
 
@@ -111,6 +119,34 @@ export function PayeeManager({ initialRows, initialError = "" }: Props) {
     else setRows((current) => current.map((row) => (row.id === p.id ? { ...row, is_active: next } : row)));
   };
 
+  const groups = useMemo(() => {
+    const map = new Map<string, Payee[]>();
+    rows.forEach((r) => map.set(norm(r.name), [...(map.get(norm(r.name)) || []), r]));
+    return map;
+  }, [rows]);
+
+  // Moves every cheque from the duplicate to the payee you keep, then removes the duplicate.
+  const merge = async (dup: Payee, keep: Payee) => {
+    if (!window.confirm(`Merge “${dup.name}” into “${keep.name}”?\n\nAll cheques will show “${keep.name}” and “${dup.name}” will be removed. This cannot be undone.`)) return;
+    setBusy(true);
+    setMsg("");
+    const s = createClient();
+    const { data: { user } } = await s.auth.getUser();
+    if (!user) { setBusy(false); setMsg("Please sign in again."); return; }
+    const moved = await s.from("cheques").update({ payee_id: keep.id }).eq("payee_id", dup.id).eq("user_id", user.id);
+    if (moved.error) { setBusy(false); setMsg(moved.error.message); return; }
+    const removed = await s.from("payees").delete().eq("id", dup.id).eq("user_id", user.id);
+    if (removed.error) {
+      await s.from("payees").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", dup.id);
+      setRows((current) => current.map((row) => (row.id === dup.id ? { ...row, is_active: false } : row)));
+      setMsg("Cheques moved. The duplicate could not be deleted, so it was deactivated instead.");
+    } else {
+      setRows((current) => current.filter((row) => row.id !== dup.id));
+      setMsg(`Merged into “${keep.name}” ✓`);
+    }
+    setBusy(false);
+  };
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return rows;
@@ -178,18 +214,23 @@ export function PayeeManager({ initialRows, initialError = "" }: Props) {
           <input className="standalone-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or phone" />
 
           <div className="record-list">
-            {filtered.map((p) => (
+            {filtered.map((p) => {
+              const twins = (groups.get(norm(p.name)) || []).filter((r) => r.id !== p.id);
+              return (
               <div className="record-row" key={p.id}>
                 <div>
                   <strong>{p.name}</strong>
                   <span className="muted">{p.phone || "No phone"} · {p.is_active ? "Active" : "Inactive"}</span>
+                  {twins.length > 0 && <span className="dup-flag">Possible duplicate</span>}
                 </div>
                 <div className="action-row">
+                  {twins.length > 0 && <button className="btn secondary" disabled={busy} onClick={() => void merge(p, twins[0])}>Merge into “{twins[0].name}”</button>}
                   <button className="btn ghost" onClick={() => edit(p)}>Edit</button>
                   <button className="btn ghost" onClick={() => void toggle(p)}>{p.is_active ? "Deactivate" : "Activate"}</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {!filtered.length && <div className="empty"><h3>No payees found</h3><p className="muted">Add your first reusable payee above.</p></div>}
           </div>
         </section>
