@@ -8,7 +8,7 @@ export function ChequeRegister({rows,total,params}:{rows:Row[];total:number;para
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   const start=total?(params.page-1)*PAGE_SIZE+1:0;
   const end=Math.min(total,(params.page-1)*PAGE_SIZE+rows.length);
-  const exportHref=registerHref({...params,page:1},"/api/cheques/export");
+  const exportHref=registerHref({...params,page:1},"/cheques/export");
   return <>
     <form className="register-toolbar card" method="get" action="/cheques" role="search">
       <div className="search-box"><span aria-hidden="true">⌕</span><input name="q" defaultValue={params.q} placeholder="Search payee or cheque number" aria-label="Search payee or cheque number"/></div>
