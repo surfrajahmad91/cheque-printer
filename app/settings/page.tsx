@@ -2,6 +2,8 @@ import {redirect} from "next/navigation";
 import {createClient} from "@/lib/supabase/server";
 import {SettingsManager} from "@/components/settings-manager";
 
+export const metadata = { title: "Settings", robots: { index: false, follow: false } };
+
 export default async function Settings(){
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
