@@ -3,6 +3,8 @@ import Link from "next/link";
 import {ChequeRegister} from "@/components/cheque-register";
 import {PAGE_SIZE,buildRegisterFilter,parseRegisterParams} from "@/lib/register-query";
 
+export const metadata = { title: "Cheque register", robots: { index: false, follow: false } };
+
 export default async function Cheques({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
