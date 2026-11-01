@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Account under review", robots: { index: false, follow: false } };
+
 export default async function AccountPending({searchParams}:{searchParams:Promise<{stage?:string;status?:string}>}){
   const {stage,status}=await searchParams;
   const rejected=status==="rejected";
