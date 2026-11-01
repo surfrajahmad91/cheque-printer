@@ -4,6 +4,8 @@ import {AdminUsers} from "@/components/admin-users";
 
 const ADMIN_EMAIL = "surfrajahmad@gmail.com";
 
+export const metadata = { title: "Account review", robots: { index: false, follow: false } };
+
 export default async function AdminUsersPage(){
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
