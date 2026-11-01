@@ -257,6 +257,8 @@ const responsiveDesignerStyles = `
   }
 `;
 
+export const metadata = { title: "Cheque designer", robots: { index: false, follow: false } };
+
 export default async function Designer({searchParams}:{searchParams:Promise<{edit?:string}>}){
   const {edit}=await searchParams;
   if(!edit)return <div className="designer-page-layout"><style>{responsiveDesignerStyles}{dragTargetStyles}{printStyles}</style><ChequeDesigner/></div>;
