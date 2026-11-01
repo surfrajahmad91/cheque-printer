@@ -16,11 +16,18 @@ import {isAdminEmail} from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://cheque-printer-five.vercel.app";
+const siteTitle = "ChequeFlow — Precise Cheque Printing";
+const siteDescription = "Prepare, calibrate and print cheques with confidence. Reusable payees and templates, a clean register, and a print preview that matches the real cheque.";
+
 export const metadata: Metadata = {
-  title: "ChequeFlow — Precise Cheque Printing",
-  description: "A professional workspace for preparing, calibrating, managing and printing cheques.",
+  metadataBase: new URL(siteUrl),
+  title: { default: siteTitle, template: "%s · ChequeFlow" },
+  description: siteDescription,
   applicationName: "ChequeFlow",
-  icons: {icon: "/icon.svg"},
+  icons: {icon: "/icon.svg", apple: "/apple-icon.png"},
+  openGraph: {type: "website", siteName: "ChequeFlow", title: siteTitle, description: siteDescription, locale: "en_IN"},
+  twitter: {card: "summary_large_image", title: siteTitle, description: siteDescription},
   robots: {index: true, follow: true},
 };
 

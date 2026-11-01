@@ -331,4 +331,50 @@
     html body .activity-card .table-wrap .table td:nth-child(5) { grid-area: 2 / 2; justify-self: end; }
     html body .activity-card .table-wrap .table td:nth-child(6) { grid-area: 3 / 2; justify-self: end; }
   }
+
+  /* ---------- Launch polish: public backdrop, 404, hero cheque, loading ---------- */
+  html body .public-page { background: transparent !important; }
+  html body:has(.public-page) {
+    background:
+      radial-gradient(900px 480px at 92% -4%, rgba(184, 151, 90, .16), transparent 62%),
+      radial-gradient(900px 480px at -4% 104%, rgba(11, 138, 108, .11), transparent 62%),
+      var(--pf-page) !important;
+  }
+  html body .nf { min-height: calc(100vh - 120px); display: grid; place-items: center; padding: 40px 18px; }
+  html body .nf-card { width: min(520px, 100%); text-align: center; background: #fff; border: 1px solid var(--pf-line); border-radius: 26px; padding: 44px 30px 36px; box-shadow: var(--pf-sh-3); position: relative; overflow: hidden; }
+  html body .nf-card::before { content: ""; position: absolute; left: 50%; top: 0; width: 72px; height: 3px; transform: translateX(-50%); background: linear-gradient(90deg, var(--pf-gold), rgba(184, 151, 90, .2)); border-radius: 0 0 4px 4px; }
+  html body .nf-code { font-family: var(--pf-serif); font-size: clamp(76px, 20vw, 120px); line-height: 1; font-weight: 600; letter-spacing: -.04em; background: linear-gradient(180deg, var(--pf-ink-3), var(--pf-green)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  html body .nf-card h1 { font-family: var(--pf-serif) !important; font-size: clamp(24px, 5vw, 30px) !important; margin: 8px 0 10px !important; color: var(--pf-ink) !important; }
+  html body .nf-card p { color: var(--pf-muted); font-size: 14px; line-height: 1.7; margin: 0 auto 22px; max-width: 380px; }
+  html body .nf-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  html body .lp-steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+  html body .lp-steps span { font-size: 9px; font-weight: 800; color: #0b7a5e; background: #e3f6ee; border-radius: 99px; padding: 3px 9px; letter-spacing: .02em; }
+  html body .lp-chequewrap { position: relative; padding: 20px 0 0 22px; }
+  html body .lp-dim { position: absolute; left: 22px; right: 0; top: 0; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #24463b; }
+  html body .lp-dim::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #8da39a; }
+  html body .lp-dim span, html body .lp-vdim span { position: relative; background: #fff; padding: 0 8px; }
+  html body .lp-vdim { position: absolute; left: 0; top: 20px; bottom: 0; width: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #24463b; }
+  html body .lp-vdim::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #8da39a; }
+  html body .lp-vdim span { writing-mode: vertical-rl; transform: rotate(180deg); padding: 8px 0; }
+  html body .lp-cheque { position: relative; aspect-ratio: 2 / 1; background: #fffefa; border-radius: 4px; box-shadow: 0 0 0 1px rgba(10, 26, 22, .1), 0 14px 30px rgba(10, 26, 22, .16); overflow: hidden; font-size: clamp(7px, 1.05vw, 12px); color: #111; }
+  html body .lp-cheque > span { position: absolute; white-space: nowrap; line-height: 1; }
+  html body .lp-cross { left: 2%; top: 9%; font-weight: 800; font-size: .72em; letter-spacing: .04em; transform: rotate(-32deg); transform-origin: left top; padding: 2px 6px; border-top: 1px solid #111; border-bottom: 1px solid #111; }
+  html body .lp-date { right: 5%; top: 14%; font-weight: 700; letter-spacing: .12em; }
+  html body .lp-payee { left: 17%; top: 38%; font-weight: 700; font-size: 1.1em; }
+  html body .lp-words { left: 17%; top: 56%; font-size: .78em; }
+  html body .lp-amt { right: 6%; top: 56%; font-weight: 800; font-size: 1.15em; }
+
+  html body .pf-skel { border-radius: 14px; background: linear-gradient(100deg, #e9eeeb 30%, #f6f9f7 50%, #e9eeeb 70%); background-size: 220% 100%; animation: pfshimmer 1.3s linear infinite; }
+  html body .pf-skel-title { height: 36px; width: min(300px, 70%); margin: 6px 0 12px; }
+  html body .pf-skel-line { height: 14px; width: min(460px, 90%); margin-bottom: 22px; }
+  html body .pf-skel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  html body .pf-skel-card { height: 104px; border-radius: 18px; }
+  html body .pf-skel-table { height: 280px; border-radius: 18px; }
+  @keyframes pfshimmer { to { background-position: -220% 0; } }
+  @media (max-width: 700px) {
+    html body .lp-words { display: none; }
+    html body .lp-payee { top: 42%; }
+    html body .lp-amt { top: 62%; }
+  }
 }
