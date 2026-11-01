@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 type Key = "acPayee" | "acPayeeTopLine" | "acPayeeBottomLine" | "date" | "payee" | "amount" | "words1" | "words2";
-type C = { x: number; y: number; font?: number; width?: number; angle?: number; spacing?: number; enabled?: boolean };
+type C = { x: number; y: number; font?: number; width?: number; angle?: number; spacing?: number; enabled?: boolean; bold?: boolean };
 type Template = { id: string; name: string; payee: string; calibration: Record<Key, C> };
 type Props = { initialDraft?: { id: string; chequeNumber?: string | number; payee: string; date: string; amount: string; notes: string; config?: Record<string, C> } };
 type Drag = { k: Key; dx: number; dy: number };
@@ -45,21 +45,21 @@ const formatIndianAmount = (s: string) => {
   const n = Number(s);
   return Number.isFinite(n) && n >= 0 ? n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
 };
-function measureText(text: string, pt: number) {
+function measureText(text: string, pt: number, bold = false) {
   if (typeof document === "undefined") return text.length * pt * 0.55;
   const ctx = document.createElement("canvas").getContext("2d");
   if (!ctx) return text.length * pt * 0.55;
-  ctx.font = `${pt * 96 / 72}px Inter, system-ui, sans-serif`;
+  ctx.font = `${bold ? 700 : 400} ${pt * 96 / 72}px Inter, system-ui, sans-serif`;
   return ctx.measureText(text).width;
 }
-function wrapTwoLines(s: string, w1: number, font1: number): [string, string] {
+function wrapTwoLines(s: string, w1: number, font1: number, bold = false): [string, string] {
   if (!s) return ["", ""];
   const width1Px = Math.max(1, w1 * 96 / 25.4);
   const words = s.split(/\s+/).filter(Boolean);
   let line1 = ""; let index = 0;
   for (; index < words.length; index++) {
     const candidate = line1 ? `${line1} ${words[index]}` : words[index];
-    if (measureText(candidate, font1) <= width1Px) line1 = candidate; else break;
+    if (measureText(candidate, font1, bold) <= width1Px) line1 = candidate; else break;
   }
   if (!line1 && words.length) { line1 = words[0]; index = 1; }
   return [line1, words.slice(index).join(" ")];
@@ -88,6 +88,7 @@ function normalizeConfig(raw: any): Record<Key, C> {
 const FIELD_LABELS: Record<Key, string> = { acPayee: "A/C PAYEE text", acPayeeTopLine: "A/C PAYEE top line", acPayeeBottomLine: "A/C PAYEE bottom line", date: "Date digits", payee: "Payee", amount: "Numeric amount", words1: "Amount in words · line 1", words2: "Amount in words · line 2" };
 const FIELD_CHIPS: { k: Key; t: string }[] = [{ k: "payee", t: "Payee" }, { k: "date", t: "Date" }, { k: "amount", t: "Amount" }, { k: "words1", t: "Words 1" }, { k: "words2", t: "Words 2" }, { k: "acPayee", t: "A/C text" }, { k: "acPayeeTopLine", t: "Top line" }, { k: "acPayeeBottomLine", t: "Bottom line" }];
 const r1 = (n: number) => Math.round(n * 10) / 10;
+const BOLD_KEYS: Key[] = ["payee", "date", "amount", "words1", "words2"];
 
 const Toggle = ({ checked, onChange, label, note }: { checked: boolean; onChange: (v: boolean) => void; label: string; note: string }) => (
   <label className="cd-toggle-row">
@@ -133,7 +134,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
   const [zoom, setZoom] = useState(1);
 
   const words = useMemo(() => amountWords(amount), [amount]);
-  const [w1, w2] = useMemo(() => wrapTwoLines(words, cfg.words1.width || 120, cfg.words1.font || 11), [words, cfg.words1.width, cfg.words1.font]);
+  const [w1, w2] = useMemo(() => wrapTwoLines(words, cfg.words1.width || 120, cfg.words1.font || 11, !!cfg.words1.bold), [words, cfg.words1.width, cfg.words1.font, cfg.words1.bold]);
 
   const loadTemplates = async () => {
     const s = createClient();
@@ -314,7 +315,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
   useEffect(() => { if (prevSel.current !== sel) { prevSel.current = sel; setCalOpen(true); } }, [sel]);
 
   const c = cfg[sel];
-  const itemStyle = (k: Key): React.CSSProperties => ({ left: `${cfg[k].x}mm`, top: `${cfg[k].y}mm`, fontSize: cfg[k].font ? `${cfg[k].font}pt` : undefined, width: cfg[k].width ? `${cfg[k].width}mm` : undefined, transform: cfg[k].angle != null ? `rotate(${cfg[k].angle}deg)` : undefined });
+  const itemStyle = (k: Key): React.CSSProperties => ({ left: `${cfg[k].x}mm`, top: `${cfg[k].y}mm`, fontSize: cfg[k].font ? `${cfg[k].font}pt` : undefined, width: cfg[k].width ? `${cfg[k].width}mm` : undefined, transform: cfg[k].angle != null ? `rotate(${cfg[k].angle}deg)` : undefined, fontWeight: cfg[k].bold ? (k === "date" || k === "amount" ? 800 : 700) : undefined });
   const dateDigits = date.split("");
 
   return <div className="cd-page">
@@ -500,7 +501,8 @@ export function ChequeDesigner({ initialDraft }: Props) {
           </div>
 
           <div className="cd-card cd-toggle-card">
-            <div className="cd-card-head"><strong><b className="pf-num">2</b>Crossing</strong><span>Turn off for non A/C Payee cheques</span></div>
+            <div className="cd-card-head"><strong><b className="pf-num">2</b>Print style</strong><span>Bold and crossing</span></div>
+            <Toggle checked={BOLD_KEYS.every((k) => !!cfg[k].bold)} onChange={(v) => setCfg((x) => { const n = { ...x }; BOLD_KEYS.forEach((k) => { n[k] = { ...n[k], bold: v }; }); return n; })} label="Bold text" note="Payee, date, amount and amount in words print in bold" />
             <Toggle checked={enabled("acPayee")} onChange={(v) => field("acPayee", "enabled", v)} label="A/C PAYEE text" note="Print the A/C PAYEE wording" />
             <Toggle checked={enabled("acPayeeTopLine")} onChange={(v) => field("acPayeeTopLine", "enabled", v)} label="Top crossing line" note="Print the upper line" />
             <Toggle checked={enabled("acPayeeBottomLine")} onChange={(v) => field("acPayeeBottomLine", "enabled", v)} label="Bottom crossing line" note="Print the lower line" />
@@ -520,6 +522,7 @@ export function ChequeDesigner({ initialDraft }: Props) {
                 <div className="pf-step"><small>Nudge by</small>{[0.1, 0.5, 1].map((n) => <button key={n} type="button" className={nudge === n ? "on" : ""} onClick={() => setNudge(n)}>{n} mm</button>)}</div>
               </div>
               <div className="cd-cal-grid"><label><span>X <span className="label-hint">mm from left</span></span><input type="number" step="0.1" value={c.x} onChange={(e) => field(sel, "x", +e.target.value)} /></label><label><span>Y <span className="label-hint">mm from top</span></span><input type="number" step="0.1" value={c.y} onChange={(e) => field(sel, "y", +e.target.value)} /></label></div>
+              {sel !== "acPayeeTopLine" && sel !== "acPayeeBottomLine" && <Toggle checked={!!c.bold} onChange={(v) => field(sel, "bold", v)} label="Bold" note="Print this field in bold" />}
               {c.font != null && <label><span>Font size <span className="label-hint">pt</span></span><input type="number" step="0.5" value={c.font} onChange={(e) => field(sel, "font", +e.target.value)} /></label>}
               {c.width != null && <label><span>Width <span className="label-hint">mm</span></span><input type="number" step="0.1" value={c.width} onChange={(e) => field(sel, "width", +e.target.value)} /></label>}
               {(c.angle != null || sel === "acPayee" || sel === "acPayeeTopLine" || sel === "acPayeeBottomLine") && <label><span>Angle <span className="label-hint">degrees</span></span><input type="number" step="1" value={c.angle ?? 0} onChange={(e) => field(sel, "angle", +e.target.value)} /></label>}
