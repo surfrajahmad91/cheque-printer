@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ChequeActions } from "@/components/cheque-actions";
 import { fmtDateIN, fmtDateTimeIST } from "@/lib/format";
 
+export const metadata = { title: "Cheque details", robots: { index: false, follow: false } };
+
 export default async function ChequeDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
