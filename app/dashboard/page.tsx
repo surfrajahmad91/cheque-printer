@@ -1,6 +1,8 @@
 import {createClient} from "@/lib/supabase/server";
 import Link from "next/link";
 
+export const metadata = { title: "Dashboard", robots: { index: false, follow: false } };
+
 export default async function Dashboard(){
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
