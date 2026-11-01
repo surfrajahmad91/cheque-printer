@@ -2,6 +2,8 @@ import {redirect} from "next/navigation";
 import {createClient} from "@/lib/supabase/server";
 import {PayeeManager} from "@/components/payee-manager";
 
+export const metadata = { title: "Payees", robots: { index: false, follow: false } };
+
 export default async function Payees(){
   const s=await createClient();
   const {data:claimsData}=await s.auth.getClaims();
