@@ -100,3 +100,10 @@
     box-shadow: none !important;
   }
 }
+
+/* One page only: the app shell must take no space when printing.
+   (Its full-screen height can exceed the paper on phones and add a second page that repeats the cheque.) */
+@media print{
+  .shell{min-height:0!important;height:0!important;overflow:visible!important}
+  .topbar,.mobile-nav{display:none!important}
+}
